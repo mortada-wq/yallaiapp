@@ -1,0 +1,50 @@
+{
+  "name": "sahib-chat",
+  "description": "sahib.chat — glassmorphic AI coding workspace",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.490.0",
+    "@babel/standalone": "^7.23.0",
+    "@monaco-editor/react": "^4.6.0",
+    "clsx": "^2.1.0",
+    "cmdk": "^0.2.0",
+    "file-saver": "^2.0.5",
+    "highlight.js": "^11.9.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.314.0",
+    "nanoid": "^5.0.4",
+    "next": "^14.1.0",
+    "next-themes": "^0.2.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hotkeys-hook": "^4.4.1",
+    "react-markdown": "^9.0.1",
+    "react-split": "^2.0.14",
+    "react-window": "^1.8.10",
+    "remark-gfm": "^4.0.0",
+    "sonner": "^1.3.1",
+    "tailwind-merge": "^2.2.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/file-saver": "^2.0.7",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-window": "^1.8.8",
+    "autoprefixer": "^10.4.17",
+    "eslint": "^8",
+    "eslint-config-next": "^14.1.0",
+    "monaco-editor": "^0.45.0",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5"
+  }
+}

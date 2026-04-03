@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Cursor / VS Code–style surfaces (no orange in chrome) */
+  --cursor-editor: #1e1e1e;
+  --cursor-chrome: #252526;
+  --cursor-panel: #181818;
+  --cursor-border: #3c3c3c;
+  --sahib-ocean: #3a8aaf;
+  --sahib-bg-top: #252526;
+  --sahib-bg-bottom: #1e1e1e;
+  --sahib-glass: rgba(37, 37, 38, 0.92);
+  --sahib-overlay: rgba(0, 0, 0, 0.5);
+  --sahib-text: #e5e7eb;
+  --sahib-muted: #9ca3af;
+  --sahib-placeholder: #6b7280;
+  --sahib-heading: #ffffff;
+  --sahib-page-grad: var(--cursor-editor);
+}
+
+html {
+  color-scheme: dark;
+}
+html.light {
+  color-scheme: light;
+}
+
+html.light body {
+  background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+}
+
+body,
+header,
+aside,
+section,
+footer,
+nav,
+button,
+input,
+textarea {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow, opacity;
+  transition-timing-function: ease;
+  transition-duration: 300ms;
+}
+
+@layer base {
+  body {
+    @apply min-h-screen antialiased;
+    background: var(--sahib-page-grad);
+    color: var(--sahib-text);
+  }
+}
+
+@layer components {
+  .sahib-glass {
+    background: var(--sahib-glass);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--cursor-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+  }
+
+  .sahib-glass-sm {
+    border-radius: 12px;
+  }
+
+  .sahib-input {
+    @apply w-full text-sm outline-none transition-all duration-300 ease-in-out;
+    background: #3c3c3c;
+    border: 1px solid rgba(58, 138, 175, 0.35);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+
+  .sahib-input::placeholder {
+    color: var(--sahib-placeholder);
+  }
+
+  .sahib-input:focus {
+    outline: none;
+    border-color: rgba(58, 138, 175, 0.65);
+    box-shadow: 0 0 0 1px rgba(58, 138, 175, 0.35), 0 0 20px rgba(58, 138, 175, 0.2);
+  }
+
+  .sahib-nav-surface {
+    background: var(--cursor-chrome);
+  }
+
+  .sahib-sidebar-active {
+    border-left: 3px solid #3a8aaf;
+    background: rgba(58, 138, 175, 0.12);
+  }
+
+  .sahib-msg-user {
+    background: rgba(58, 138, 175, 0.14);
+    border-radius: 16px 16px 4px 16px;
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sahib-msg-ai {
+    background: rgba(37, 37, 38, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px 16px 16px 4px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .sahib-markdown {
+    @apply max-w-none text-sm;
+    color: var(--sahib-text);
+  }
+  .sahib-markdown h1,
+  .sahib-markdown h2,
+  .sahib-markdown h3 {
+    color: var(--sahib-heading);
+    font-weight: 700;
+  }
+  .sahib-markdown a {
+    color: #48c5ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .sahib-markdown code {
+    background: #2d2d30;
+    border: 1px solid rgba(58, 138, 175, 0.25);
+    border-radius: 6px;
+    padding: 0.1em 0.35em;
+    font-size: 0.9em;
+  }
+}
+
+.studio-scroll {
+  scroll-behavior: smooth;
+}
+
+.gutter {
+  background: linear-gradient(180deg, rgba(58, 138, 175, 0.4) 0%, rgba(58, 138, 175, 0.15) 100%);
+}
+.gutter.gutter-horizontal {
+  cursor: col-resize;
+}
