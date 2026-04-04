@@ -1,6 +1,8 @@
 "use client";
 
-import { FolderOpen, LayoutGrid, Search, Settings, Share2 } from "lucide-react";
+import { useCallback } from "react";
+import { FolderOpen, LayoutGrid, LogOut, Search, Settings, Share2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { SahibLogo } from "@/components/SahibLogo";
 import { SahibIconButton, SahibSecondaryButton } from "@/components/SahibButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -22,9 +24,16 @@ export function Header({
   onSettings,
   onProjects,
 }: HeaderProps) {
+  const router = useRouter();
   const activeProject = useProjectStore((s) =>
     s.activeProjectId ? s.projects.find((p) => p.id === s.activeProjectId) : null,
   );
+
+  const handleLogout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }, [router]);
 
   return (
     <header
@@ -87,6 +96,9 @@ export function Header({
         <ThemeToggle />
         <SahibIconButton type="button" onClick={onSettings} aria-label="Settings">
           <Settings className="h-4 w-4" />
+        </SahibIconButton>
+        <SahibIconButton type="button" onClick={handleLogout} aria-label="Sign out">
+          <LogOut className="h-4 w-4" />
         </SahibIconButton>
       </div>
     </header>

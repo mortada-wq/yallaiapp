@@ -2,12 +2,15 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { nanoid } from "nanoid";
 import type {
+  AiProvider,
+  AiProviderConfig,
   ChatContextPayload,
   ConsoleEntry,
   EditorFile,
   Message,
   ViewMode,
 } from "@/lib/types";
+import { DEFAULT_MODELS } from "@/lib/aiProvider";
 import { getFileByName } from "@/lib/codeProcessor";
 
 const PREVIEW_SIZES = [
@@ -65,6 +68,14 @@ type StudioState = {
   insertOrUpdateFile: (name: string, language: string, content: string) => void;
   applyCodeToPreview: (language: string, code: string) => void;
   loadProject: (files: EditorFile[], messages: Message[]) => void;
+  // AI provider config
+  aiProvider: AiProvider;
+  aiApiKeys: Record<AiProvider, string>;
+  aiModels: Record<AiProvider, string>;
+  setAiProvider: (p: AiProvider) => void;
+  setAiApiKey: (provider: AiProvider, key: string) => void;
+  setAiModel: (provider: AiProvider, model: string) => void;
+  getAiConfig: () => AiProviderConfig;
 };
 
 let editorTabFocusHandler: (() => void) | null = null;
@@ -92,6 +103,14 @@ export const useStudioStore = create<StudioState>()(
       mainPanelMode: "split",
       consoleEntries: [],
       previewRuntimeError: null,
+      aiProvider: "bedrock" as AiProvider,
+      aiApiKeys: { bedrock: "", anthropic: "", openai: "", deepseek: "" },
+      aiModels: {
+        bedrock: DEFAULT_MODELS.bedrock,
+        anthropic: DEFAULT_MODELS.anthropic,
+        openai: DEFAULT_MODELS.openai,
+        deepseek: DEFAULT_MODELS.deepseek,
+      },
 
       focusEditorTab: () => editorTabFocusHandler?.(),
       setChatDraftPrefill: (text) => set({ chatDraftPrefill: text }),
@@ -187,6 +206,20 @@ export const useStudioStore = create<StudioState>()(
           chatError: null,
         }),
 
+      setAiProvider: (aiProvider) => set({ aiProvider }),
+      setAiApiKey: (provider, key) =>
+        set((s) => ({ aiApiKeys: { ...s.aiApiKeys, [provider]: key } })),
+      setAiModel: (provider, model) =>
+        set((s) => ({ aiModels: { ...s.aiModels, [provider]: model } })),
+      getAiConfig: () => {
+        const s = get();
+        return {
+          provider: s.aiProvider,
+          apiKey: s.aiApiKeys[s.aiProvider] ?? "",
+          model: s.aiModels[s.aiProvider] ?? DEFAULT_MODELS[s.aiProvider],
+        };
+      },
+
       applyCodeToPreview: (language, code) => {
         const lang = (language || "text").toLowerCase();
         let name = "snippet.txt";
@@ -230,6 +263,9 @@ export const useStudioStore = create<StudioState>()(
         previewDebounceMs: s.previewDebounceMs,
         consoleOpen: s.consoleOpen,
         previewDeviceIndex: s.previewDeviceIndex,
+        aiProvider: s.aiProvider,
+        aiApiKeys: s.aiApiKeys,
+        aiModels: s.aiModels,
       }),
     },
   ),

@@ -45,6 +45,15 @@ export interface ChatContextPayload {
   projectInstructions?: string;
 }
 
+export type AiProvider = "bedrock" | "anthropic" | "openai" | "deepseek";
+
+export interface AiProviderConfig {
+  provider: AiProvider;
+  /** API key — stored in localStorage, sent to server per-request */
+  apiKey: string;
+  model: string;
+}
+
 export interface Project {
   id: string;
   name: string;

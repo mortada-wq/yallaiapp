@@ -91,6 +91,7 @@ export function ChatPanel() {
       .messages.filter((m) => m.id !== userMsg.id && m.id !== assistantId);
 
     try {
+      const aiConfig = useStudioStore.getState().getAiConfig();
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,6 +99,9 @@ export function ChatPanel() {
           message: trimmed,
           history,
           context: buildChatContextForApi(),
+          provider: aiConfig.provider,
+          apiKey: aiConfig.apiKey,
+          model: aiConfig.model,
         }),
       });
       if (!res.ok) {
