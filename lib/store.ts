@@ -64,6 +64,7 @@ type StudioState = {
   setPreviewRuntimeError: (e: string | null) => void;
   insertOrUpdateFile: (name: string, language: string, content: string) => void;
   applyCodeToPreview: (language: string, code: string) => void;
+  loadProject: (files: EditorFile[], messages: Message[]) => void;
 };
 
 let editorTabFocusHandler: (() => void) | null = null;
@@ -176,6 +177,16 @@ export const useStudioStore = create<StudioState>()(
         get().focusEditorTab();
       },
 
+      loadProject: (files, messages) =>
+        set({
+          files,
+          messages,
+          activeFileId: files[0]?.id ?? null,
+          consoleEntries: [],
+          previewRuntimeError: null,
+          chatError: null,
+        }),
+
       applyCodeToPreview: (language, code) => {
         const lang = (language || "text").toLowerCase();
         let name = "snippet.txt";
@@ -236,10 +247,24 @@ export function buildChatContextForApi(): ChatContextPayload {
     .slice(-8)
     .map((e) => e.args)
     .join("\n");
+
+  // Import lazily to avoid circular dependency
+  let projectInstructions: string | undefined;
+  try {
+    const { useProjectStore } = require("@/lib/projectStore") as typeof import("@/lib/projectStore");
+    const project = useProjectStore.getState().getActiveProject();
+    if (project?.instructions?.trim()) {
+      projectInstructions = project.instructions.trim();
+    }
+  } catch {
+    // ignore
+  }
+
   return {
     activeFileName: active?.name,
     activeFileContent: active?.content,
     fileTree: s.files.map((f) => `- ${f.name} (${f.language})`).join("\n"),
     consoleErrors: errs || s.previewRuntimeError || undefined,
+    projectInstructions,
   };
 }

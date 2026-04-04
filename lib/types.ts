@@ -42,4 +42,16 @@ export interface ChatContextPayload {
   fileTree?: string;
   consoleErrors?: string;
   selection?: string;
+  projectInstructions?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  files: EditorFile[];
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
 }

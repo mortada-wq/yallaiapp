@@ -7,7 +7,10 @@ export function buildFileTree(files: EditorFile[]): string {
 export function buildContextFromPayload(payload: ChatContextPayload | undefined): string {
   if (!payload) return "";
   const chunks: string[] = [];
-  if (payload.fileTree) chunks.push("## Files\n", payload.fileTree);
+  if (payload.projectInstructions) {
+    chunks.push("## Project Instructions\n", payload.projectInstructions, "\n");
+  }
+  if (payload.fileTree) chunks.push("\n## Files\n", payload.fileTree);
   if (payload.activeFileName && payload.activeFileContent) {
     chunks.push(
       `\n## Current file: ${payload.activeFileName}\n`,
