@@ -1,4 +1,4 @@
-# sahib.chat
+# Yallai
 
 Glassmorphic **AI coding workspace**: chat with an assistant (AWS Bedrock), edit in **Monaco**, live **HTML/CSS/JS** preview.
 
