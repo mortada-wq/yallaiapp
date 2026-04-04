@@ -2,6 +2,8 @@
 
 Glassmorphic **AI coding workspace**: chat with an assistant (AWS Bedrock), edit in **Monaco**, live **HTML/CSS/JS** preview.
 
+📚 **[View Complete Architecture & Development Guide](./ARCHITECTURE.md)**
+
 ## Brand & UI
 
 - **Palette:** ocean blue `#3A8AAF`, sunset / rust oranges `#DF7825` → `#CF571F`
