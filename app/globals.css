@@ -147,3 +147,51 @@ textarea {
 .gutter.gutter-horizontal {
   cursor: col-resize;
 }
+
+/* Activity bar */
+.activity-bar {
+  width: 48px;
+}
+
+.activity-bar-btn {
+  position: relative;
+}
+
+.activity-bar-btn::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e1e1e;
+  color: #e5e7eb;
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 100;
+}
+
+.activity-bar-btn:hover::after {
+  opacity: 1;
+}
+
+/* Knowledge tower entry cards */
+.knowledge-tower-entry {
+  transition: border-color 0.15s ease;
+}
+.knowledge-tower-entry:hover {
+  border-color: rgba(58, 138, 175, 0.3);
+}
+
+/* Memory log entry cards */
+.memory-log-entry {
+  transition: border-color 0.15s ease;
+}
+.memory-log-entry:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
