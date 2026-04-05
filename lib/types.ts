@@ -6,6 +6,29 @@ export interface Message {
   isStreaming?: boolean;
 }
 
+export interface ProcessingEntry {
+  id: string;
+  timestamp: string;
+  type: "ai_call" | "code_run" | "file_change";
+  summary: string;
+  tokensUsed?: number;
+}
+
+export interface ProjectMemory {
+  notes: string;
+  processingLog: ProcessingEntry[];
+}
+
+export interface KnowledgeEntry {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  linkedProjectIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EditorFile {
   id: string;
   name: string;
@@ -61,6 +84,7 @@ export interface Project {
   instructions: string;
   files: EditorFile[];
   messages: Message[];
+  memory?: ProjectMemory;
   createdAt: string;
   updatedAt: string;
 }

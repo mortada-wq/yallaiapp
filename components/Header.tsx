@@ -1,105 +1,76 @@
 "use client";
 
 import { useCallback } from "react";
-import { FolderOpen, LayoutGrid, LogOut, Search, Settings, Share2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Share2, ChevronDown } from "lucide-react";
 import { SahibLogo } from "@/components/SahibLogo";
-import { SahibIconButton, SahibSecondaryButton } from "@/components/SahibButton";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SahibIconButton } from "@/components/SahibButton";
 import { useProjectStore } from "@/lib/projectStore";
+import { useStudioStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 type HeaderProps = {
-  onCommandPalette: () => void;
-  onTemplates: () => void;
   onExport: () => void;
-  onSettings: () => void;
   onProjects: () => void;
 };
 
-export function Header({
-  onCommandPalette,
-  onTemplates,
-  onExport,
-  onSettings,
-  onProjects,
-}: HeaderProps) {
-  const router = useRouter();
+export function Header({ onExport, onProjects }: HeaderProps) {
   const activeProject = useProjectStore((s) =>
     s.activeProjectId ? s.projects.find((p) => p.id === s.activeProjectId) : null,
   );
+  const setActivePanel = useStudioStore((s) => s.setActivePanel);
+  const setSidebarCollapsed = useStudioStore((s) => s.setSidebarCollapsed);
 
-  const handleLogout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }, [router]);
+  const openProfile = useCallback(() => {
+    setActivePanel("profile");
+    setSidebarCollapsed(false);
+  }, [setActivePanel, setSidebarCollapsed]);
 
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 flex h-[60px] shrink-0 items-center justify-between border-b px-4 backdrop-blur-md lg:px-6",
-        "border-[#3c3c3c] bg-[#252526] shadow-sahib-glow",
+        "sticky top-0 z-50 flex h-12 shrink-0 items-center justify-between border-b px-3 backdrop-blur-md",
+        "border-[#3c3c3c] bg-[#1e1e1e] shadow-sahib-glow",
       )}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      {/* Left: Logo + project name */}
+      <div className="flex min-w-0 items-center gap-2">
         <SahibLogo />
-        {/* Current project name */}
-        {activeProject && (
-          <>
-            <span className="hidden text-white/20 sm:inline">/</span>
-            <button
-              type="button"
-              onClick={onProjects}
-              className="hidden min-w-0 max-w-[180px] items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-[#9CA3AF] transition-colors hover:bg-white/5 hover:text-white sm:flex"
-              title="Switch project"
-            >
-              <FolderOpen className="h-3.5 w-3.5 shrink-0 text-[#3A8AAF]" />
-              <span className="truncate">{activeProject.name}</span>
-            </button>
-          </>
+        {activeProject ? (
+          <button
+            type="button"
+            onClick={onProjects}
+            className="flex min-w-0 max-w-[200px] items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-[#9CA3AF] transition-colors hover:bg-white/5 hover:text-white"
+            title="Switch project"
+          >
+            <span className="truncate">{activeProject.name}</span>
+            <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onProjects}
+            className="rounded-md px-2 py-1 text-sm text-[#6B7280] transition hover:bg-white/5 hover:text-white"
+          >
+            Open project
+          </button>
         )}
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
-        <SahibSecondaryButton
-          type="button"
-          onClick={onCommandPalette}
-          className="hidden h-9 items-center gap-1 px-2 py-0 text-xs sm:inline-flex"
-        >
-          <Search className="h-3.5 w-3.5" />
-          ⌘K
-        </SahibSecondaryButton>
-
-        {/* Projects button */}
-        <SahibSecondaryButton
-          type="button"
-          onClick={onProjects}
-          className="inline-flex h-9 items-center gap-1 px-2 py-0 text-xs"
-        >
-          <FolderOpen className="h-4 w-4" />
-          <span className="hidden sm:inline">Projects</span>
-        </SahibSecondaryButton>
-
-        <SahibSecondaryButton
-          type="button"
-          onClick={onTemplates}
-          className="inline-flex h-9 items-center gap-1 px-2 py-0 text-xs"
-        >
-          <LayoutGrid className="h-4 w-4" />
-          <span className="hidden sm:inline">Templates</span>
-        </SahibSecondaryButton>
-
-        <SahibIconButton type="button" onClick={onExport} aria-label="Share">
+      {/* Right: Share + Profile avatar */}
+      <div className="flex items-center gap-1">
+        <SahibIconButton type="button" onClick={onExport} aria-label="Share / Export">
           <Share2 className="h-4 w-4" />
         </SahibIconButton>
-        <ThemeToggle />
-        <SahibIconButton type="button" onClick={onSettings} aria-label="Settings">
-          <Settings className="h-4 w-4" />
-        </SahibIconButton>
-        <SahibIconButton type="button" onClick={handleLogout} aria-label="Sign out">
-          <LogOut className="h-4 w-4" />
-        </SahibIconButton>
+
+        {/* Profile avatar button */}
+        <button
+          type="button"
+          onClick={openProfile}
+          title="Profile"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#3A8AAF] to-[#DF7825] text-[11px] font-bold text-white transition hover:opacity-90"
+        >
+          U
+        </button>
       </div>
     </header>
   );

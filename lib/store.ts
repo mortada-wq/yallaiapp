@@ -19,6 +19,8 @@ const PREVIEW_SIZES = [
   { label: "Desktop", width: "100%" },
 ] as const;
 
+export type ActivePanel = "files" | "memory" | "knowledge" | "profile";
+
 type StudioState = {
   messages: Message[];
   chatLoading: boolean;
@@ -36,6 +38,7 @@ type StudioState = {
   mainPanelMode: "split" | "chat" | "editor";
   consoleEntries: ConsoleEntry[];
   previewRuntimeError: string | null;
+  activePanel: ActivePanel;
 
   focusEditorTab: () => void;
   setChatDraftPrefill: (text: string | null) => void;
@@ -55,6 +58,7 @@ type StudioState = {
   loadTemplateFiles: (files: EditorFile[]) => void;
   setSidebarCollapsed: (v: boolean) => void;
   toggleSidebar: () => void;
+  setActivePanel: (panel: ActivePanel) => void;
   setConsoleOpen: (v: boolean) => void;
   toggleConsole: () => void;
   setViewMode: (m: ViewMode) => void;
@@ -95,6 +99,7 @@ export const useStudioStore = create<StudioState>()(
       activeFileId: null,
       lastSavedAt: null,
       sidebarCollapsed: false,
+      activePanel: "files" as ActivePanel,
       consoleOpen: true,
       viewMode: "split",
       previewDeviceIndex: 2,
@@ -156,6 +161,7 @@ export const useStudioStore = create<StudioState>()(
 
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      setActivePanel: (activePanel) => set({ activePanel, sidebarCollapsed: false }),
       setConsoleOpen: (consoleOpen) => set({ consoleOpen }),
       toggleConsole: () => set((s) => ({ consoleOpen: !s.consoleOpen })),
       setViewMode: (viewMode) => set({ viewMode }),
@@ -257,6 +263,7 @@ export const useStudioStore = create<StudioState>()(
         activeFileId: s.activeFileId,
         messages: s.messages,
         sidebarCollapsed: s.sidebarCollapsed,
+        activePanel: s.activePanel,
         viewMode: s.viewMode,
         mainPanelMode: s.mainPanelMode,
         editorFontSize: s.editorFontSize,

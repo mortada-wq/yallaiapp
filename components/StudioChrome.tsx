@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Header } from "@/components/Header";
+import { ActivityBar } from "@/components/ActivityBar";
 import { Sidebar } from "@/components/Sidebar";
 import { StudioWorkspace } from "@/components/StudioWorkspace";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -54,14 +55,17 @@ export function StudioChrome() {
   return (
     <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden text-[#E5E7EB]">
       <Header
-        onCommandPalette={() => setCommandOpen(true)}
-        onTemplates={() => setTemplatesOpen(true)}
         onExport={() => setExportOpen(true)}
-        onSettings={() => setSettingsOpen(true)}
         onProjects={() => setProjectsOpen(true)}
       />
       <div className="flex min-h-0 min-w-0 flex-1">
-        <Sidebar />
+        <ActivityBar />
+        <Sidebar
+          onSettings={() => setSettingsOpen(true)}
+          onTemplates={() => setTemplatesOpen(true)}
+          onExport={() => setExportOpen(true)}
+          onProjects={() => setProjectsOpen(true)}
+        />
         <StudioWorkspace />
       </div>
       <CommandPalette
