@@ -1,12 +1,13 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { FilePlus, FolderOpen, Brain, Layers, User } from "lucide-react";
+import { FilePlus, FolderOpen, Brain, Layers, User, Laugh } from "lucide-react";
 import { useStudioStore } from "@/lib/store";
 import { SahibIconButton } from "@/components/SahibButton";
 import { ProjectMemoryPanel } from "@/components/ProjectMemoryPanel";
 import { KnowledgeTowerPanel } from "@/components/KnowledgeTowerPanel";
 import { UserProfilePanel } from "@/components/UserProfilePanel";
+import { JokePanel } from "@/components/JokePanel";
 import { cn } from "@/lib/utils";
 
 // Props are passed through from StudioChrome for UserProfilePanel actions
@@ -112,6 +113,7 @@ export function Sidebar({ onSettings, onTemplates, onExport, onProjects }: Sideb
           />
         </>
       )}
+      {activePanel === "jokes" && <JokePanel />}
     </aside>
   );
 }
