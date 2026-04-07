@@ -1,6 +1,6 @@
 "use client";
 
-import { Files, Brain, Layers, User } from "lucide-react";
+import { Files, Brain, Layers, User, Laugh } from "lucide-react";
 import { useStudioStore, type ActivePanel } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ const NAV_ITEMS: { panel: ActivePanel; icon: React.ElementType; label: string }[
   { panel: "memory", icon: Brain, label: "Memory" },
   { panel: "knowledge", icon: Layers, label: "Knowledge Tower" },
   { panel: "profile", icon: User, label: "Profile" },
+  { panel: "jokes", icon: Laugh, label: "Joke Generator" },
 ];
 
 export function ActivityBar() {

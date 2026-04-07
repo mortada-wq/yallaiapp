@@ -19,7 +19,7 @@ const PREVIEW_SIZES = [
   { label: "Desktop", width: "100%" },
 ] as const;
 
-export type ActivePanel = "files" | "memory" | "knowledge" | "profile";
+export type ActivePanel = "files" | "memory" | "knowledge" | "profile" | "jokes";
 
 type StudioState = {
   messages: Message[];
