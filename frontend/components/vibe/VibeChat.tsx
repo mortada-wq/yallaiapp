@@ -15,33 +15,8 @@ const MAX_CHARS = 4000;
 
 type Chip = { label: string; prompt: string; template?: TemplateId };
 
-const CHIPS: Chip[] = [
-  {
-    label: "صفحة هبوط",
-    prompt:
-      "Build a modern, glassmorphic landing page for a product called 'Ember'. Hero with headline, CTA button, three feature cards, footer. Dark theme, warm orange + ocean blue accents. Single index.html with inline CSS. All user-visible text should be in Arabic (RTL). Keep code comments in English.",
-  },
-  {
-    label: "تطبيق مهام",
-    prompt:
-      "Build a clean todo app with Arabic UI (RTL). Add, complete, delete tasks. Persist to localStorage. Plain HTML, CSS (nice typography, rounded cards, subtle shadows), and vanilla JS. Single index.html file, inline CSS/JS. Set `dir=\"rtl\"` on html.",
-  },
-  {
-    label: "لوحة تحكم",
-    prompt:
-      "Build a small analytics dashboard (Arabic UI, RTL) with 4 KPI tiles, a line-chart placeholder, and a recent-activity list. Dark theme, glassmorphic cards. Single index.html with inline CSS and a tiny placeholder chart drawn with divs. Set `dir=\"rtl\"`.",
-  },
-  {
-    label: "معرض أعمال",
-    prompt:
-      "Build a one-page dark portfolio (Arabic UI, RTL) for a designer: intro, 3 project cards (image placeholder, title, tags), contact section with email. Tasteful typography, lots of whitespace. Single index.html, inline CSS. Set `dir=\"rtl\"`.",
-  },
-  {
-    label: "شاشة دخول",
-    prompt:
-      "Design a beautiful sign-in screen (Arabic UI, RTL): email + password, show/hide password, subtle gradient background, glassmorphic card, validation error state. Single index.html, inline CSS + a tiny bit of JS. Set `dir=\"rtl\"`.",
-  },
-];
+// User asked to remove AI-authored Arabic prompt suggestions; keep the empty state clean.
+const CHIPS: Chip[] = [];
 
 export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
   const messages = useStudioStore((s) => s.messages);
@@ -277,6 +252,7 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
 }
 
 function EmptyPrompt({ onChip }: { onChip: (c: Chip) => void }) {
+  void onChip; // chips removed per user request; kept signature stable
   return (
     <div
       data-testid="vibe-empty-state"
@@ -288,21 +264,8 @@ function EmptyPrompt({ onChip }: { onChip: (c: Chip) => void }) {
       <div>
         <h3 className="text-lg font-semibold text-white">فلنبني شيئًا معًا</h3>
         <p className="mx-auto mt-1 max-w-xs text-sm text-white/50">
-          اوصف تطبيقك بكلماتك. جرّب أحد هذه الأفكار للبدء.
+          اكتب طلبك في الأسفل.
         </p>
-      </div>
-      <div className="flex flex-wrap justify-center gap-2 pt-1">
-        {CHIPS.map((c) => (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => onChip(c)}
-            data-testid={`chip-${c.label.replace(/\s+/g, "-")}`}
-            className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-white/80 transition-all hover:border-sahib-ocean/50 hover:bg-sahib-ocean/10 hover:text-white active:scale-95"
-          >
-            {c.label}
-          </button>
-        ))}
       </div>
     </div>
   );
