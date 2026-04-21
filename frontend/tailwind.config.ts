@@ -12,6 +12,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "Segoe UI", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "ui-monospace", "monospace"],
+        aref: ["var(--font-aref-ruqaa)", "serif"],
       },
       colors: {
         sahib: {

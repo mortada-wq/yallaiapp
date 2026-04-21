@@ -39,7 +39,7 @@ export function VibeChrome() {
 
   const share = useCallback(async () => {
     if (!files.length) {
-      toast.error("Nothing to share yet");
+      toast.error("لا يوجد شيء لمشاركته بعد");
       return;
     }
     setSharing(true);
@@ -53,12 +53,12 @@ export function VibeChrome() {
         }),
       });
       const j = (await res.json()) as { path?: string; error?: string; detail?: string };
-      if (!res.ok) throw new Error(j.error || j.detail || "Share failed");
+      if (!res.ok) throw new Error(j.error || j.detail || "تعذّرت المشاركة");
       const full = `${shareLinkOrigin()}${j.path ?? ""}`;
       await navigator.clipboard.writeText(full);
-      toast.success("Share link copied", { description: full });
+      toast.success("تم نسخ رابط المشاركة", { description: full });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Share failed");
+      toast.error(e instanceof Error ? e.message : "تعذّرت المشاركة");
     } finally {
       setSharing(false);
     }
@@ -66,21 +66,21 @@ export function VibeChrome() {
 
   const downloadZip = useCallback(async () => {
     if (!files.length) {
-      toast.error("Nothing to download yet");
+      toast.error("لا يوجد شيء للتنزيل بعد");
       return;
     }
     const z = new JSZip();
     files.forEach((f) => z.file(f.name, f.content));
     const blob = await z.generateAsync({ type: "blob" });
-    saveAs(blob, "yallai-project.zip");
-    toast.success("Downloaded");
+    saveAs(blob, "sahib-yalla-project.zip");
+    toast.success("تم التنزيل");
   }, [files]);
 
   const copyAll = useCallback(() => {
     if (!files.length) return;
     void navigator.clipboard
       .writeText(files.map((f) => `/* ${f.name} */\n${f.content}`).join("\n\n"))
-      .then(() => toast.success("All code copied"));
+      .then(() => toast.success("تم نسخ الكود كاملًا"));
   }, [files]);
 
   return (
@@ -91,13 +91,17 @@ export function VibeChrome() {
       {/* Top bar */}
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/5 bg-[rgba(10,11,13,0.8)] px-3 py-2.5 backdrop-blur-md sm:px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-sahib-ocean to-[#DF7825]">
-            <span className="text-sm font-black text-white">Y</span>
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-bold text-white">Yallai</span>
-            <span className="hidden text-[10px] text-white/40 sm:block">vibe coding studio</span>
-          </div>
+          <h1
+            className="font-aref text-2xl font-bold leading-none text-transparent sm:text-[28px]"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #3A8AAF 0%, #DF7825 100%)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+            }}
+            data-testid="app-logo"
+          >
+            صاحب يلا
+          </h1>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -113,9 +117,9 @@ export function VibeChrome() {
             )}
           >
             <Code2 className="h-3.5 w-3.5" />
-            <span className="hidden xs:inline sm:inline">Code</span>
+            <span className="hidden xs:inline sm:inline">الكود</span>
             {files.length > 0 && (
-              <span className="ml-0.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-white/70">
+              <span className="ms-0.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-white/70">
                 {files.length}
               </span>
             )}
@@ -129,13 +133,13 @@ export function VibeChrome() {
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-white/80 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             <Share2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{sharing ? "Sharing…" : "Share"}</span>
+            <span className="hidden sm:inline">{sharing ? "جاري المشاركة…" : "مشاركة"}</span>
           </button>
 
           <button
             type="button"
             onClick={copyAll}
-            aria-label="Copy all code"
+            aria-label="نسخ الكود"
             data-testid="topbar-copy"
             className="hidden h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white md:inline-flex"
           >
@@ -144,7 +148,7 @@ export function VibeChrome() {
           <button
             type="button"
             onClick={() => void downloadZip()}
-            aria-label="Download ZIP"
+            aria-label="تنزيل ZIP"
             data-testid="topbar-zip"
             className="hidden h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/60 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white md:inline-flex"
           >
@@ -155,20 +159,23 @@ export function VibeChrome() {
 
       {/* Mobile tab switcher */}
       <div className="flex shrink-0 items-center justify-center gap-1 border-b border-white/5 bg-[rgba(10,11,13,0.6)] px-2 py-2 lg:hidden">
-        {(["chat", "preview"] as const).map((t) => (
+        {([
+          { k: "chat" as const, label: "المحادثة" },
+          { k: "preview" as const, label: "المعاينة" },
+        ]).map((t) => (
           <button
-            key={t}
+            key={t.k}
             type="button"
-            onClick={() => setMobileTab(t)}
-            data-testid={`mobile-tab-${t}`}
+            onClick={() => setMobileTab(t.k)}
+            data-testid={`mobile-tab-${t.k}`}
             className={cn(
-              "rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-all",
-              mobileTab === t
+              "rounded-full px-4 py-1.5 text-xs font-medium transition-all",
+              mobileTab === t.k
                 ? "bg-white text-[#141517] shadow-lg"
                 : "text-white/50 hover:text-white",
             )}
           >
-            {t}
+            {t.label}
           </button>
         ))}
       </div>

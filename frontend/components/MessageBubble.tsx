@@ -65,7 +65,7 @@ export function MessageBubble({ message, isStreaming }: { message: Message; isSt
               {message.content}
             </ReactMarkdown>
             {isStreaming && (
-              <span className="ml-1 inline-block h-3 w-1 animate-pulse rounded bg-sahib-ocean" />
+              <span className="mx-1 inline-block h-3 w-1 animate-pulse rounded bg-sahib-ocean" />
             )}
           </div>
         )}

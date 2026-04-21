@@ -102,7 +102,7 @@ export function LivePreview({ className }: { className?: string }) {
       )}
     >
       {/* Browser chrome */}
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#1b1d20] px-3 py-2">
+      <div dir="ltr" className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-[#1b1d20] px-3 py-2">
         <div className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -179,8 +179,7 @@ function EmptyState() {
         <div className="h-6 w-6 rounded-md bg-gradient-to-br from-sahib-ocean to-[#DF7825]" />
       </div>
       <p className="max-w-xs text-sm text-white/50">
-        Your app will appear here. Ask the AI to build something — a landing page, a todo app,
-        anything.
+        سيظهر تطبيقك هنا. اطلب من الذكاء الاصطناعي أن يبني شيئًا — صفحة هبوط، تطبيق مهام، أي شيء.
       </p>
     </div>
   );

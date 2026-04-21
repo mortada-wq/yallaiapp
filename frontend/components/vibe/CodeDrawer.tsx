@@ -60,11 +60,11 @@ export function CodeDrawer({
 
         {/* header */}
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-          <h2 className="text-sm font-semibold text-white">Code</h2>
+          <h2 className="text-sm font-semibold text-white">الكود</h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="إغلاق"
             data-testid="code-drawer-close"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/5 hover:text-white"
           >
@@ -72,8 +72,9 @@ export function CodeDrawer({
           </button>
         </header>
 
-        {/* body: reuse existing EditorPanel — lazy-mount so files aren't auto-seeded on page load */}
-        <div className="flex h-[calc(100%-57px)] min-h-0 w-full">
+        {/* body: reuse existing EditorPanel — lazy-mount so files aren't auto-seeded on page load.
+            Force LTR because code is inherently LTR. */}
+        <div dir="ltr" className="flex h-[calc(100%-57px)] min-h-0 w-full">
           {open && <EditorPanel />}
         </div>
       </div>

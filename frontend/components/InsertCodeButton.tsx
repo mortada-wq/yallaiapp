@@ -34,23 +34,23 @@ export function InsertCodeButton({
         type="button"
         onClick={() => {
           insertOrUpdateFile(fileName, language, code);
-          toast.success("Inserted into editor", { description: fileName });
+          toast.success("أُدرج في المحرر", { description: fileName });
         }}
         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs"
       >
         <ArrowDownToLine className="h-3.5 w-3.5" />
-        Insert to Editor
+        إدراج في المحرر
       </SahibSecondaryButton>
       <SahibSecondaryButton
         type="button"
         onClick={() => {
           applyCodeToPreview(language, code);
-          toast.success("Applied to preview");
+          toast.success("طُبِّق على المعاينة");
         }}
         className="inline-flex items-center gap-1 border-[rgba(58,138,175,0.45)] px-3 py-1.5 text-xs text-[#E5E7EB] hover:border-[rgba(58,138,175,0.65)] hover:bg-[rgba(58,138,175,0.1)]"
       >
         <Sparkles className="h-3.5 w-3.5 text-sahib-ocean" />
-        Apply to Preview
+        تطبيق على المعاينة
       </SahibSecondaryButton>
     </div>
   );

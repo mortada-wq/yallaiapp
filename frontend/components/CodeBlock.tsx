@@ -30,6 +30,7 @@ export function CodeBlock({
 
   return (
     <div
+      dir="ltr"
       className={cn(
         "overflow-hidden rounded-xl border border-[#3c3c3c] bg-[#2d2d30] shadow-sahib-glow",
         className,
@@ -48,7 +49,7 @@ export function CodeBlock({
           className="flex items-center gap-1 text-[11px] text-sahib-ocean transition-colors hover:text-white"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? "نُسخ" : "نسخ"}
         </button>
       </div>
       <div className="flex max-h-[400px] overflow-auto font-mono text-[13px]">

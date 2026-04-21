@@ -1,66 +1,77 @@
-# Yallai — Product Requirements
+# صاحب يلا (Sahib Yalla) — Product Requirements
 
-## Original problem statement
-> "fix it to be a full stack .. i can use it in mobile browser and here .. i can build apps by it using api"
-> "let's enhance the app more… really complicated UI… I mostly going to use this by mobile… responsive… like vibe coding (replit agent) with thinking/awaiting animation"
+## Original problem statement (ongoing)
+- "fix it to be a full stack… i can use it in mobile browser and here… i can build apps by it using api"
+- "let's enhance the app more… really complicated UI… I mostly going to use this by mobile… responsive… like vibe coding (replit agent) with thinking/awaiting animation"
+- "make sure the whole app is RTL, remove the current logo, replace with text **صاحب يلا** in Google **Aref Ruqaa** font"
 
-The user wants a portable, full-stack AI coding workspace they can use on both desktop and phone. Current iteration: a **vibe-coding studio** — preview-first, chat-first, AI-driven, with a Replit-Agent-style thinking animation.
+## Identity
+- **Name**: صاحب يلا (Sahib Yalla)
+- **Logo**: Arabic word-mark "صاحب يلا" set in Google Aref Ruqaa, with a linear gradient `#3A8AAF → #DF7825`. No square icon.
+- **Direction**: RTL (Arabic-first). `<html lang="ar" dir="rtl">`.
+- **Fonts**:
+  - Logo / display: `Aref Ruqaa` (Google Fonts) → `--font-aref-ruqaa` → `font-aref` utility
+  - Body: `Inter` (Latin) + system fallback for Arabic glyphs
+  - Code / Monaco: `JetBrains Mono`
 
 ## Architecture
-- **Frontend** (`/app/frontend`): Next.js 14 App Router, TypeScript, Tailwind, Zustand, Monaco, `@babel/standalone`.
-  `yarn start` → `next dev -H 0.0.0.0 -p 3000`.
+- **Frontend** (`/app/frontend`): Next.js 14 App Router, TypeScript, Tailwind, Zustand, Monaco, `@babel/standalone`. `yarn start` → `next dev -H 0.0.0.0 -p 3000`.
 - **Backend** (`/app/backend`): FastAPI on `0.0.0.0:8001` (uvicorn --reload).
-- **Database**: MongoDB (will migrate to Neon Postgres next, per user).
-- **LLM**: Claude Sonnet 4.5 via Emergent LLM key (`emergentintegrations`). Non-streaming call on backend, re-chunked into a text stream for the UI.
+- **Database**: MongoDB today, migrating to **Neon Postgres** (user has free credits).
+- **LLM**: Claude Sonnet 4.5 via Emergent LLM key (`emergentintegrations`). Non-streaming call chunked in the backend into a text stream for smooth UI.
 
-## Vibe-coding UI (2026-04-21 — this session)
-- **Top bar (minimal)**: Yallai mark + "vibe coding studio" subtitle, `Code(N)` button with file count badge + green flash when a new file is added, `Share` (copy link), `Copy`, `Download ZIP`.
-- **Preview (hero)**: browser-chrome styled (traffic-light dots, device pill, refresh), live iframe with the current build. Device toggle: Mobile / Tablet / Desktop.
-- **Chat (right column on desktop, tab on mobile)**:
-  - Empty state: big sparkle mark, "Let's build something" + 5 prompt chips (Landing page, Todo app, Dashboard, Portfolio, Login screen).
-  - Messages: existing `MessageBubble` with code blocks + **Insert to Editor** / **Apply to Preview** buttons.
-  - **ThinkingIndicator**: 3 pulsing ocean-blue dots + rotating phrases ("Reading your request…", "Planning the structure…", "Writing the code…", "Styling & polish…", "Wiring it up…", "Almost there…") cycling every 1.8s while the AI is working.
-  - **Streaming cursor** (pulsing ocean-blue bar) after the last streamed char.
-  - **Composer**: large 52px-min-height textarea with glowing ring focus + round gradient send button (ArrowUp). `Enter` to send, `Shift+Enter` for newline.
-- **Code drawer**: slide-over (desktop right, mobile bottom-sheet) wrapping the existing Monaco `EditorPanel`. Lazy-mounted — doesn't run until opened, so files stay empty until the user actually builds something.
-- **Mobile**: single-pane tab switcher (Chat / Preview), sticky composer, touch-friendly (44-52px hit targets).
+## Vibe-coding UI (2026-04-21, now fully RTL)
+- **Top bar** (preserved from previous iteration, now RTL): logo on the right, buttons on the left: الكود(N) (+ green flash when a new file added) · مشاركة · Copy · Download.
+- **Hero preview** (browser chrome with traffic-light dots + device toggle; preview chrome kept LTR since labels are technical). Device toggle: Mobile · Tablet · Desktop.
+- **Chat column** (left of the viewport in RTL):
+  - Header: ✨ المحادثة · N رسالة / ابدأ البناء · مسح
+  - Empty state: "فلنبني شيئًا معًا / اوصف تطبيقك بكلماتك. جرّب أحد هذه الأفكار للبدء." + chips: صفحة هبوط · تطبيق مهام · لوحة تحكم · معرض أعمال · شاشة دخول
+  - Messages with MessageBubble; code blocks forced to `dir="ltr"` so code is readable.
+  - **ThinkingIndicator** (Replit-Agent style): 3 pulsing ocean-blue dots + rotating Arabic phrases ("أقرأ طلبك…", "أخطط للبنية…", "أكتب الكود…", "أُحسّن التصميم…", "أوصل القطع معًا…", "اقتربنا…") every 1.8s.
+  - Streaming cursor (pulsing ocean-blue bar) after the last char.
+  - **Action buttons** inside assistant code blocks: "إدراج في المحرر" / "تطبيق على المعاينة".
+  - Composer: large glowing textarea (52px min height, grows to 180px), ocean-blue gradient send button (ArrowUp). Placeholder: "ماذا تريد أن تبني اليوم؟" (empty) / "اطلب تعديلات… (Shift+Enter لسطر جديد)" (after first message). `dir="auto"` on textarea so user text is aligned per character.
+  - Counter: "0/4000 · Enter للإرسال" and "عرض الكود ←" shortcut.
+- **Code drawer** (slide-over / bottom-sheet, dir="ltr"): wraps Monaco + FileTabs + Preview + Console. Lazy-mounted so files aren't auto-seeded until first use.
+- **Mobile tabs**: المحادثة / المعاينة, pill switcher at top.
+- **Toasts** in Arabic: تم نسخ رابط المشاركة, لا يوجد شيء لمشاركته بعد, تم التنزيل, تم نسخ الكود كاملًا, أُدرج في المحرر, طُبِّق على المعاينة.
 
-### Files added/changed this session
-- NEW `components/vibe/VibeChrome.tsx` — top-level shell
-- NEW `components/vibe/VibeChat.tsx` — chat + composer + chips + thinking
-- NEW `components/vibe/LivePreview.tsx` — hero preview with browser chrome
-- NEW `components/vibe/ThinkingIndicator.tsx` — Replit-Agent style thinking animation
-- NEW `components/vibe/CodeDrawer.tsx` — slide-over / bottom-sheet wrapping EditorPanel
-- MOD `app/page.tsx` → renders `<VibeChrome />`
-- MOD `app/globals.css` → `.vibe-bg`, `@keyframes vibe-pulse`, `@keyframes vibe-fade-in`, `xs:` breakpoint
+### RTL implementation notes
+- `<html dir="rtl" lang="ar">` in `app/layout.tsx`.
+- Layout uses flex + `ms-` / `me-` logical spacing; no hard-coded `ml-` in the vibe shell.
+- `CodeBlock` and `CodeDrawer > EditorPanel` are wrapped in `dir="ltr"` (code and Monaco must stay LTR).
+- `LivePreview`'s browser chrome bar is `dir="ltr"` (traffic-light dots convention).
+- Preview iframe renders whatever the model produced (usually `dir="rtl"` when asked; chips instruct the model to set it).
 
-Retired but not deleted (available as reference / for rollback):
-`StudioChrome`, `StudioWorkspace`, `Header`, `Sidebar`, `ActivityBar`, `CommandPalette`, `TourOverlay`, `ProjectsModal`, `ProjectFormModal`, `ProjectMemoryPanel`, `KnowledgeTowerPanel`, `UserProfilePanel`, `TemplateModal`, `ExportModal`, `SettingsModal`.
+## API (unchanged)
+| Method | Path              | Purpose |
+|--------|-------------------|---------|
+| GET    | `/api/health`     | Health check |
+| POST   | `/api/chat`       | Streamed Claude Sonnet 4.5 reply |
+| POST   | `/api/share`      | Create snapshot → `{ id, path }` |
+| GET    | `/api/share/{id}` | Retrieve snapshot |
 
-## API surface (backend, unchanged this session)
-| Method | Path                  | Purpose |
-|--------|-----------------------|---------|
-| GET    | `/api/health`         | Health check |
-| POST   | `/api/chat`           | Streamed assistant reply (Claude Sonnet 4.5) |
-| POST   | `/api/share`          | Create a share snapshot → `{ id, path }` |
-| GET    | `/api/share/{id}`     | Retrieve a share snapshot |
-
-## Verified end-to-end (2026-04-21)
-- **Desktop (1440×900)**: empty state → prompt → thinking indicator shows with rotating phrase → code block streams in → "Apply to Preview" → iframe instantly renders the built HTML. Code button shows file count + green flash.
-- **Mobile (390×780)**: empty state, chip prefill, send, thinking phrase visible, code + buttons, "Apply to Preview" toast, Preview tab shows live "My Tasks" todo app.
-- Share link round-trip through Mongo: OK.
+## Verified end-to-end
+- Arabic prompt → thinking phrases (Arabic) → streamed code block (LTR inside bubble) → "تطبيق على المعاينة" → toast "طُبِّق على المعاينة" → iframe renders "مرحبا يا صاحبي" in RTL. ✅
+- Desktop (1440×900) and Mobile (390×780). ✅
 
 ## Prioritized backlog
-- **P0** Migrate MongoDB → **Neon Postgres** (shares + projects + chat history) when user provides the connection string — one DB to own when they move off Emergent.
-- **P1** Persist projects in DB (currently only localStorage) — needed for true cross-device vibe coding.
-- **P1** Model-swap dropdown in a small Settings popover (Claude 4.5 / GPT-5.2 / Gemini 3 Pro, all via Emergent key; Bedrock when user migrates to AWS).
-- **P2** Public `POST /api/generate` with a simple app-token so the user can call Yallai from external apps.
-- **P2** True streaming from the LLM (currently full-reply chunked for smooth display).
-- **P3** Optional single-user auth (JWT) now that DB persists.
-- **P3** Collaborative multi-user workspaces.
+- **P0** Migrate MongoDB → **Neon Postgres** once connection string is provided.
+- **P1** Persist projects + chat history in DB (currently only localStorage on the client).
+- **P1** Tiny Settings popover with model dropdown (Claude 4.5 / GPT-5.2 / Gemini 3 Pro — all via Emergent key today; one env flip → AWS Bedrock later).
+- **P2** Public `POST /api/generate` with app-token so Arabic iOS / Android webviews / cURL can call Sahib Yalla from elsewhere.
+- **P2** True token-level streaming from the LLM.
+- **P3** Single-user auth on top of persistent DB; multi-user later.
+- **P3** Re-mix button on `/s/{id}` share pages.
 
-## Tech stack
-- Next.js 14, React 18, Tailwind, Zustand, Monaco, `@babel/standalone`
-- FastAPI, motor (Mongo) → will become asyncpg/SQLAlchemy (Neon)
-- `emergentintegrations` for LLM (Claude Sonnet 4.5)
-- Supervisor, MongoDB
+## Files touched in the RTL session
+- `app/layout.tsx` — `dir="rtl" lang="ar"`, Aref Ruqaa font, Arabic metadata.
+- `tailwind.config.ts` — `font-aref` family.
+- `components/vibe/VibeChrome.tsx` — logo becomes "صاحب يلا" in `font-aref` with gradient, all top-bar/tab strings to Arabic, toasts to Arabic.
+- `components/vibe/VibeChat.tsx` — all strings to Arabic, chips relabeled, prompts updated to ask the model for Arabic + `dir="rtl"` output.
+- `components/vibe/ThinkingIndicator.tsx` — phrases in Arabic.
+- `components/vibe/LivePreview.tsx` — empty state in Arabic, chrome kept LTR.
+- `components/vibe/CodeDrawer.tsx` — labels in Arabic, body wrapped `dir="ltr"` for Monaco.
+- `components/CodeBlock.tsx` — wrapped in `dir="ltr"`, copy button in Arabic.
+- `components/InsertCodeButton.tsx` — buttons in Arabic, toasts in Arabic.
+- `components/MessageBubble.tsx` — streaming cursor uses logical margin.

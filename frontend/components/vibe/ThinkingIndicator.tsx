@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const PHASES = [
-  "Reading your request…",
-  "Planning the structure…",
-  "Writing the code…",
-  "Styling & polish…",
-  "Wiring it up…",
-  "Almost there…",
+  "أقرأ طلبك…",
+  "أخطط للبنية…",
+  "أكتب الكود…",
+  "أُحسّن التصميم…",
+  "أوصل القطع معًا…",
+  "اقتربنا…",
 ];
 
 /**

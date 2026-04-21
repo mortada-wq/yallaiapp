@@ -17,29 +17,29 @@ type Chip = { label: string; prompt: string; template?: TemplateId };
 
 const CHIPS: Chip[] = [
   {
-    label: "Landing page",
+    label: "صفحة هبوط",
     prompt:
-      "Build a modern, glassmorphic landing page for a product called 'Ember'. Hero with headline, CTA button, three feature cards, footer. Dark theme, warm orange + ocean blue accents. Single index.html with inline CSS.",
+      "Build a modern, glassmorphic landing page for a product called 'Ember'. Hero with headline, CTA button, three feature cards, footer. Dark theme, warm orange + ocean blue accents. Single index.html with inline CSS. All user-visible text should be in Arabic (RTL). Keep code comments in English.",
   },
   {
-    label: "Todo app",
+    label: "تطبيق مهام",
     prompt:
-      "Build a clean todo app. Add, complete, delete tasks. Persist to localStorage. Plain HTML, CSS (nice typography, rounded cards, subtle shadows), and vanilla JS. Single index.html file, inline CSS/JS.",
+      "Build a clean todo app with Arabic UI (RTL). Add, complete, delete tasks. Persist to localStorage. Plain HTML, CSS (nice typography, rounded cards, subtle shadows), and vanilla JS. Single index.html file, inline CSS/JS. Set `dir=\"rtl\"` on html.",
   },
   {
-    label: "Dashboard",
+    label: "لوحة تحكم",
     prompt:
-      "Build a small analytics dashboard with 4 KPI tiles, a line-chart placeholder, and a recent-activity list. Dark theme, glassmorphic cards. Single index.html with inline CSS and a tiny placeholder chart drawn with divs.",
+      "Build a small analytics dashboard (Arabic UI, RTL) with 4 KPI tiles, a line-chart placeholder, and a recent-activity list. Dark theme, glassmorphic cards. Single index.html with inline CSS and a tiny placeholder chart drawn with divs. Set `dir=\"rtl\"`.",
   },
   {
-    label: "Portfolio",
+    label: "معرض أعمال",
     prompt:
-      "Build a one-page dark portfolio for a designer: intro, 3 project cards (image placeholder, title, tags), contact section with email. Tasteful typography, lots of whitespace. Single index.html, inline CSS.",
+      "Build a one-page dark portfolio (Arabic UI, RTL) for a designer: intro, 3 project cards (image placeholder, title, tags), contact section with email. Tasteful typography, lots of whitespace. Single index.html, inline CSS. Set `dir=\"rtl\"`.",
   },
   {
-    label: "Login screen",
+    label: "شاشة دخول",
     prompt:
-      "Design a beautiful sign-in screen: email + password, show/hide password, subtle gradient background, glassmorphic card, validation error state. Single index.html, inline CSS + a tiny bit of JS.",
+      "Design a beautiful sign-in screen (Arabic UI, RTL): email + password, show/hide password, subtle gradient background, glassmorphic card, validation error state. Single index.html, inline CSS + a tiny bit of JS. Set `dir=\"rtl\"`.",
   },
 ];
 
@@ -163,9 +163,9 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
       <header className="flex shrink-0 items-center justify-between border-b border-white/5 px-4 py-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-sahib-ocean" />
-          <span className="text-sm font-semibold text-white">Vibe chat</span>
+          <span className="text-sm font-semibold text-white">المحادثة</span>
           <span className="text-xs text-white/35">
-            {messages.length ? `${messages.length} msg` : "start a build"}
+            {messages.length ? `${messages.length} رسالة` : "ابدأ البناء"}
           </span>
         </div>
         {messages.length > 0 && (
@@ -176,7 +176,7 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
             className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Trash2 className="h-3 w-3" />
-            Clear
+            مسح
           </button>
         )}
       </header>
@@ -232,11 +232,12 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
             }}
             placeholder={
               messages.length === 0
-                ? "What do you want to build today?"
-                : "Ask for changes… (Shift+Enter for new line)"
+                ? "ماذا تريد أن تبني اليوم؟"
+                : "اطلب تعديلات… (Shift+Enter لسطر جديد)"
             }
             maxLength={MAX_CHARS}
             rows={1}
+            dir="auto"
             className="min-h-[52px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-white outline-none placeholder:text-white/35"
           />
           <button
@@ -257,7 +258,7 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
         </div>
         <div className="mt-2 flex items-center justify-between px-1">
           <span className="text-[10px] text-white/30">
-            {text.length}/{MAX_CHARS} · Enter to send
+            {text.length}/{MAX_CHARS} · Enter للإرسال
           </span>
           {onOpenCode && (
             <button
@@ -266,7 +267,7 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
               data-testid="vibe-open-code-inline"
               className="text-[11px] text-white/40 transition-colors hover:text-white"
             >
-              View code →
+              عرض الكود ←
             </button>
           )}
         </div>
@@ -285,9 +286,9 @@ function EmptyPrompt({ onChip }: { onChip: (c: Chip) => void }) {
         <Sparkles className="h-6 w-6 text-sahib-ocean" />
       </div>
       <div>
-        <h3 className="text-lg font-semibold text-white">Let&apos;s build something</h3>
+        <h3 className="text-lg font-semibold text-white">فلنبني شيئًا معًا</h3>
         <p className="mx-auto mt-1 max-w-xs text-sm text-white/50">
-          Describe your app in plain words. Try one of these to get started.
+          اوصف تطبيقك بكلماتك. جرّب أحد هذه الأفكار للبدء.
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2 pt-1">
@@ -296,7 +297,7 @@ function EmptyPrompt({ onChip }: { onChip: (c: Chip) => void }) {
             key={c.label}
             type="button"
             onClick={() => onChip(c)}
-            data-testid={`chip-${c.label.toLowerCase().replace(/\s+/g, "-")}`}
+            data-testid={`chip-${c.label.replace(/\s+/g, "-")}`}
             className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-white/80 transition-all hover:border-sahib-ocean/50 hover:bg-sahib-ocean/10 hover:text-white active:scale-95"
           >
             {c.label}
