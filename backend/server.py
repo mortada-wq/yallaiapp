@@ -770,15 +770,51 @@ async def logout(
 # ── admin routes ───────────────────────────────────────────────────────────
 @app.get("/api/admin/overview")
 async def admin_overview(_: User = Depends(require_admin)) -> dict[str, Any]:
-    """Admin overview with database stats - PostgreSQL implementation needed"""
-    # TODO: Implement admin overview for PostgreSQL
+    """Admin overview with database stats"""
+    now = datetime.now(timezone.utc)
+    day_ago = now - timedelta(hours=24)
+    seven_days = now - timedelta(days=7)
+
+    if USE_POSTGRES and pg_pool:
+        async with pg_pool.acquire() as conn:
+            total_shares = await conn.fetchval("SELECT COUNT(*) FROM shares")
+            total_chats = await conn.fetchval("SELECT COUNT(*) FROM chat_logs")
+            last24_chats = await conn.fetchval(
+                "SELECT COUNT(*) FROM chat_logs WHERE created_at >= $1", day_ago
+            )
+            last24_shares = await conn.fetchval(
+                "SELECT COUNT(*) FROM shares WHERE created_at >= $1", day_ago
+            )
+            distinct_users_7d = await conn.fetchval(
+                """
+                SELECT COUNT(DISTINCT user_email)
+                FROM chat_logs
+                WHERE created_at >= $1 AND user_email IS NOT NULL
+                """,
+                seven_days
+            )
+    else:
+        total_shares = await db["shares"].count_documents({})
+        total_chats = await db["chat_logs"].count_documents({})
+        last24_chats = await db["chat_logs"].count_documents({"created_at": {"$gte": day_ago}})
+        last24_shares = await db["chat_logs"].count_documents({"created_at": {"$gte": day_ago}})
+
+        cursor = db["chat_logs"].aggregate([
+            {"$match": {"created_at": {"$gte": seven_days}, "user_email": {"$ne": None}}},
+            {"$group": {"_id": "$user_email"}},
+            {"$count": "count"},
+        ])
+        distinct_users_7d = 0
+        async for doc in cursor:
+            distinct_users_7d = int(doc.get("count", 0))
+
     return {
-        "total_shares": 0,
-        "total_chats": 0,
-        "last24_chats": 0,
-        "last24_shares": 0,
-        "distinct_users_7d": 0,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_shares": total_shares or 0,
+        "total_chats": total_chats or 0,
+        "last24_chats": last24_chats or 0,
+        "last24_shares": last24_shares or 0,
+        "distinct_users_7d": distinct_users_7d or 0,
+        "generated_at": now.isoformat(),
     }
 
 
@@ -787,9 +823,41 @@ async def admin_shares(
     limit: int = 50,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    """List recent shares - PostgreSQL implementation needed"""
-    # TODO: Implement shares listing for PostgreSQL
-    return {"items": [], "count": 0}
+    """List recent shares"""
+    limit = max(1, min(limit, 200))
+    items: list[dict[str, Any]] = []
+
+    if USE_POSTGRES and pg_pool:
+        async with pg_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, files, created_at
+                FROM shares
+                ORDER BY created_at DESC
+                LIMIT $1
+                """,
+                limit
+            )
+            for row in rows:
+                files = json.loads(row["files"]) if isinstance(row["files"], str) else row["files"]
+                items.append({
+                    "id": row["id"],
+                    "file_count": len(files),
+                    "primary_file": files[0].get("name") if files else None,
+                    "createdAt": row["created_at"].isoformat() if isinstance(row["created_at"], datetime) else row["created_at"],
+                })
+    else:
+        cursor = db["shares"].find({}, {"_id": 1, "files": 1, "createdAt": 1}).sort("createdAt", -1).limit(limit)
+        async for doc in cursor:
+            files = doc.get("files") or []
+            items.append({
+                "id": doc["_id"],
+                "file_count": len(files),
+                "primary_file": files[0].get("name") if files else None,
+                "createdAt": doc.get("createdAt"),
+            })
+
+    return {"items": items, "count": len(items)}
 
 
 @app.delete("/api/admin/shares/{share_id}")
@@ -805,16 +873,82 @@ async def admin_chat_log(
     limit: int = 50,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    """Get recent chat logs - PostgreSQL implementation needed"""
-    # TODO: Implement chat log retrieval for PostgreSQL
-    return {"items": [], "count": 0}
+    """Get recent chat logs"""
+    limit = max(1, min(limit, 200))
+    items: list[dict[str, Any]] = []
+
+    if USE_POSTGRES and pg_pool:
+        async with pg_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, user_email, user_id, session_id, message, reply_preview, created_at
+                FROM chat_logs
+                ORDER BY created_at DESC
+                LIMIT $1
+                """,
+                limit
+            )
+            for row in rows:
+                item = dict(row)
+                if isinstance(item["created_at"], datetime):
+                    if item["created_at"].tzinfo is None:
+                        item["created_at"] = item["created_at"].replace(tzinfo=timezone.utc)
+                    item["created_at"] = item["created_at"].isoformat()
+                items.append(item)
+    else:
+        cursor = db["chat_logs"].find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
+        async for doc in cursor:
+            ts = doc.get("created_at")
+            if isinstance(ts, datetime):
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                doc["created_at"] = ts.isoformat()
+            items.append(doc)
+
+    return {"items": items, "count": len(items)}
 
 
 @app.get("/api/admin/llm-usage")
 async def admin_llm_usage(days: int = 14, _: User = Depends(require_admin)) -> dict[str, Any]:
-    """Get LLM usage stats - PostgreSQL implementation needed"""
-    # TODO: Implement LLM usage stats for PostgreSQL
-    return {"days": days, "buckets": []}
+    """Get LLM usage stats"""
+    days = max(1, min(days, 60))
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    buckets: list[dict[str, Any]] = []
+
+    if USE_POSTGRES and pg_pool:
+        async with pg_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT DATE(created_at) as date, COUNT(*) as count
+                FROM chat_logs
+                WHERE created_at >= $1
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at) ASC
+                """,
+                since
+            )
+            for row in rows:
+                buckets.append({
+                    "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
+                    "count": int(row["count"])
+                })
+    else:
+        cursor = db["chat_logs"].aggregate([
+            {"$match": {"created_at": {"$gte": since}}},
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                    },
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ])
+        async for doc in cursor:
+            buckets.append({"date": doc["_id"], "count": int(doc.get("count", 0))})
+
+    return {"days": days, "buckets": buckets}
 
 
 @app.get("/api/admin/settings")
