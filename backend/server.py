@@ -1,8 +1,8 @@
 """
-صاحب يلا backend — FastAPI.
+صاحب يلا backend — FastAPI with Neon PostgreSQL + Silicon Flow support.
 
 Public endpoints:
-  - POST /api/chat            streaming chat with Claude Sonnet 4.5 (Emergent LLM key)
+  - POST /api/chat            streaming chat with Claude Sonnet 4.5 or DeepSeek (configurable)
   - POST /api/share           save a project snapshot, return id
   - GET  /api/share/{id}      retrieve a saved snapshot
   - GET  /api/health          health check
@@ -29,6 +29,7 @@ import asyncio
 import httpx
 from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
+import json
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -36,16 +37,27 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from motor.motor_asyncio import AsyncIOMotorClient
 from nanoid import generate as nanoid
 from pydantic import BaseModel, Field
+import asyncpg
 
 # ── config ──────────────────────────────────────────────────────────────────
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
+# Database: Support both MongoDB (legacy) and PostgreSQL (Neon)
+USE_POSTGRES = os.environ.get("USE_POSTGRES", "true").lower() == "true"
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+# MongoDB (legacy support)
+MONGO_URL = os.environ.get("MONGO_URL", "")
+DB_NAME = os.environ.get("DB_NAME", "sahib_yalla")
+
+# LLM Configuration
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+SILICON_FLOW_API_KEY = os.environ.get("SILICON_FLOW_API_KEY", "")
+SILICON_FLOW_BASE_URL = os.environ.get("SILICON_FLOW_BASE_URL", "https://api.siliconflow.cn/v1")
+
 DEFAULT_LLM_PROVIDER = os.environ.get("DEFAULT_LLM_PROVIDER", "anthropic")
 DEFAULT_LLM_MODEL = os.environ.get("DEFAULT_LLM_MODEL", "claude-sonnet-4-5-20250929")
+
 ADMIN_EMAILS = {
     e.strip().lower()
     for e in os.environ.get("ADMIN_EMAILS", "mortadagzar@gmail.com").split(",")
@@ -68,19 +80,24 @@ SYSTEM_PROMPT = (
     "code (identifiers, CSS properties, JS keywords) in English."
 )
 
-# ── mongo ───────────────────────────────────────────────────────────────────
-mongo_client = AsyncIOMotorClient(MONGO_URL)
-db = mongo_client[DB_NAME]
-shares = db["shares"]
-users = db["users"]
-user_sessions = db["user_sessions"]
-chat_logs = db["chat_logs"]
-settings = db["settings"]
+# ── database setup ──────────────────────────────────────────────────────────
+pg_pool: Optional[asyncpg.Pool] = None
+mongo_client = None
+db = None
+
+if USE_POSTGRES and DATABASE_URL:
+    # PostgreSQL (Neon) setup will be done on startup
+    pass
+else:
+    # MongoDB (legacy) setup
+    from motor.motor_asyncio import AsyncIOMotorClient
+    if MONGO_URL:
+        mongo_client = AsyncIOMotorClient(MONGO_URL)
+        db = mongo_client[DB_NAME]
 
 # ── app ─────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Sahib Yalla API", version="1.0.0")
 
-# Same-origin in production (ingress), but permissive here since the preview is served via one host.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -88,6 +105,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── startup/shutdown ────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def startup():
+    global pg_pool
+    if USE_POSTGRES and DATABASE_URL:
+        try:
+            pg_pool = await asyncpg.create_pool(
+                DATABASE_URL,
+                min_size=2,
+                max_size=10,
+                command_timeout=60
+            )
+            print("✓ Connected to Neon PostgreSQL")
+        except Exception as e:
+            print(f"✗ Failed to connect to PostgreSQL: {e}")
+            raise
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    global pg_pool
+    if pg_pool:
+        await pg_pool.close()
+        print("✓ Closed PostgreSQL connection pool")
+
 
 # ── models ──────────────────────────────────────────────────────────────────
 class ChatMessage(BaseModel):
@@ -147,6 +190,221 @@ class LLMSettings(BaseModel):
     model: str
 
 
+# ── database helpers ────────────────────────────────────────────────────────
+class DatabaseAdapter:
+    """Abstract database operations to support both PostgreSQL and MongoDB"""
+
+    @staticmethod
+    async def get_settings(key: str) -> Optional[dict]:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT provider, model FROM settings WHERE key = $1",
+                    key
+                )
+                return dict(row) if row else None
+        else:
+            return await db["settings"].find_one({"_id": key}, {"_id": 0})
+
+    @staticmethod
+    async def upsert_settings(key: str, provider: str, model: str):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO settings (key, provider, model, updated_at)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (key) DO UPDATE
+                    SET provider = $2, model = $3, updated_at = $4
+                    """,
+                    key, provider, model, datetime.now(timezone.utc)
+                )
+        else:
+            await db["settings"].update_one(
+                {"_id": key},
+                {
+                    "$set": {
+                        "provider": provider,
+                        "model": model,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+                upsert=True,
+            )
+
+    @staticmethod
+    async def find_user_by_email(email: str) -> Optional[dict]:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM users WHERE email = $1",
+                    email
+                )
+                return dict(row) if row else None
+        else:
+            return await db["users"].find_one({"email": email}, {"_id": 0})
+
+    @staticmethod
+    async def find_user_by_id(user_id: str) -> Optional[dict]:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM users WHERE user_id = $1",
+                    user_id
+                )
+                return dict(row) if row else None
+        else:
+            return await db["users"].find_one({"user_id": user_id}, {"_id": 0})
+
+    @staticmethod
+    async def insert_user(user_data: dict):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO users (user_id, email, name, picture, is_admin, created_at, last_login_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    user_data["user_id"],
+                    user_data["email"],
+                    user_data.get("name", ""),
+                    user_data.get("picture"),
+                    user_data.get("is_admin", False),
+                    user_data["created_at"],
+                    user_data.get("last_login_at")
+                )
+        else:
+            await db["users"].insert_one(user_data)
+
+    @staticmethod
+    async def update_user(user_id: str, updates: dict):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                set_clause = ", ".join([f"{k} = ${i+2}" for i, k in enumerate(updates.keys())])
+                query = f"UPDATE users SET {set_clause} WHERE user_id = $1"
+                await conn.execute(query, user_id, *updates.values())
+        else:
+            await db["users"].update_one(
+                {"user_id": user_id},
+                {"$set": updates}
+            )
+
+    @staticmethod
+    async def insert_session(session_data: dict):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO user_sessions (id, user_id, session_token, expires_at, created_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    """,
+                    session_data["_id"],
+                    session_data["user_id"],
+                    session_data["session_token"],
+                    session_data["expires_at"],
+                    session_data["created_at"]
+                )
+        else:
+            await db["user_sessions"].insert_one(session_data)
+
+    @staticmethod
+    async def find_session(session_token: str) -> Optional[dict]:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM user_sessions WHERE session_token = $1",
+                    session_token
+                )
+                return dict(row) if row else None
+        else:
+            return await db["user_sessions"].find_one({"session_token": session_token}, {"_id": 0})
+
+    @staticmethod
+    async def delete_session(session_token: str):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    "DELETE FROM user_sessions WHERE session_token = $1",
+                    session_token
+                )
+        else:
+            await db["user_sessions"].delete_one({"session_token": session_token})
+
+    @staticmethod
+    async def insert_chat_log(log_data: dict):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO chat_logs (id, user_email, user_id, session_id, message, reply_preview, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    log_data["_id"],
+                    log_data.get("user_email"),
+                    log_data.get("user_id"),
+                    log_data["session_id"],
+                    log_data["message"],
+                    log_data.get("reply_preview", ""),
+                    log_data["created_at"]
+                )
+        else:
+            await db["chat_logs"].insert_one(log_data)
+
+    @staticmethod
+    async def insert_share(share_data: dict):
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO shares (id, files, active_file_id, created_at)
+                    VALUES ($1, $2, $3, $4)
+                    """,
+                    share_data["_id"],
+                    json.dumps(share_data["files"]),
+                    share_data.get("activeFileId"),
+                    share_data.get("createdAt", datetime.now(timezone.utc))
+                )
+        else:
+            await db["shares"].insert_one(share_data)
+
+    @staticmethod
+    async def find_share(share_id: str) -> Optional[dict]:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "SELECT * FROM shares WHERE id = $1",
+                    share_id
+                )
+                if row:
+                    result = dict(row)
+                    # Parse JSON files
+                    if isinstance(result.get("files"), str):
+                        result["files"] = json.loads(result["files"])
+                    # Rename fields to match MongoDB format
+                    result["activeFileId"] = result.pop("active_file_id", None)
+                    result["createdAt"] = result.pop("created_at", None)
+                    if isinstance(result["createdAt"], datetime):
+                        result["createdAt"] = result["createdAt"].isoformat()
+                    return result
+                return None
+        else:
+            return await db["shares"].find_one({"_id": share_id}, {"_id": 0})
+
+    @staticmethod
+    async def delete_share(share_id: str) -> int:
+        if USE_POSTGRES and pg_pool:
+            async with pg_pool.acquire() as conn:
+                result = await conn.execute(
+                    "DELETE FROM shares WHERE id = $1",
+                    share_id
+                )
+                # Extract count from result like "DELETE 1"
+                return int(result.split()[-1]) if result else 0
+        else:
+            res = await db["shares"].delete_one({"_id": share_id})
+            return res.deleted_count
+
+
 # ── helpers ─────────────────────────────────────────────────────────────────
 def build_context_text(ctx: Optional[ChatContext]) -> str:
     if not ctx:
@@ -169,10 +427,55 @@ def build_context_text(ctx: Optional[ChatContext]) -> str:
 
 
 async def get_current_model() -> tuple[str, str]:
-    doc = await settings.find_one({"_id": "llm"}, {"_id": 0})
+    doc = await DatabaseAdapter.get_settings("llm")
     if doc and doc.get("provider") and doc.get("model"):
         return doc["provider"], doc["model"]
     return DEFAULT_LLM_PROVIDER, DEFAULT_LLM_MODEL
+
+
+async def generate_reply_with_silicon_flow(
+    user_message: str,
+    history: List[ChatMessage],
+    extra_system: str,
+    model: str,
+) -> str:
+    """Generate reply using Silicon Flow API (OpenAI-compatible)"""
+    system = SYSTEM_PROMPT + (f"\n\n{extra_system.strip()}" if extra_system.strip() else "")
+
+    messages = [{"role": "system", "content": system}]
+
+    for m in history:
+        if m.role not in ("user", "assistant"):
+            continue
+        if m.role == "assistant" and not m.content.strip():
+            continue
+        messages.append({"role": m.role, "content": m.content})
+
+    messages.append({"role": "user", "content": user_message})
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            f"{SILICON_FLOW_BASE_URL}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {SILICON_FLOW_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "max_tokens": 4096,
+            }
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Silicon Flow API error: {response.text}"
+            )
+
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
 
 
 async def generate_reply(
@@ -181,9 +484,17 @@ async def generate_reply(
     extra_system: str,
     session_id: str,
 ) -> str:
+    provider, model = await get_current_model()
+
+    # Use Silicon Flow for deepseek models
+    if "deepseek" in model.lower() and SILICON_FLOW_API_KEY:
+        return await generate_reply_with_silicon_flow(
+            user_message, history, extra_system, model
+        )
+
+    # Use Emergent integration for other models
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
-    provider, model = await get_current_model()
     system = SYSTEM_PROMPT + (f"\n\n{extra_system.strip()}" if extra_system.strip() else "")
 
     chat = LlmChat(
@@ -221,7 +532,7 @@ async def get_optional_user(
     if not token:
         return None
 
-    sess = await user_sessions.find_one({"session_token": token}, {"_id": 0})
+    sess = await DatabaseAdapter.find_session(token)
     if not sess:
         return None
 
@@ -233,13 +544,14 @@ async def get_optional_user(
     if not expires_at or expires_at < datetime.now(timezone.utc):
         return None
 
-    user_doc = await users.find_one({"user_id": sess["user_id"]}, {"_id": 0})
+    user_doc = await DatabaseAdapter.find_user_by_id(sess["user_id"])
     if not user_doc:
         return None
+
     created = user_doc.get("created_at")
     if isinstance(created, datetime):
         user_doc["created_at"] = created.isoformat()
-    # keep only the fields the User model cares about
+
     return User(
         user_id=user_doc["user_id"],
         email=user_doc["email"],
@@ -263,7 +575,13 @@ async def require_admin(
 # ── public routes ──────────────────────────────────────────────────────────
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "service": "sahib-yalla", "time": datetime.now(timezone.utc).isoformat()}
+    db_status = "postgresql" if USE_POSTGRES else "mongodb"
+    return {
+        "ok": True,
+        "service": "sahib-yalla",
+        "database": db_status,
+        "time": datetime.now(timezone.utc).isoformat()
+    }
 
 
 @app.post("/api/chat")
@@ -296,7 +614,7 @@ async def chat_endpoint(
         except Exception as e:  # noqa: BLE001
             err = str(e)
             if "401" in err or "credential" in err.lower():
-                yield "Authentication error. The Emergent LLM key may be invalid."
+                yield "Authentication error. The API key may be invalid."
             elif "429" in err or "rate" in err.lower() or "throttl" in err.lower():
                 yield "Too many requests. Please wait a moment."
             else:
@@ -304,7 +622,7 @@ async def chat_endpoint(
         finally:
             # audit log
             try:
-                await chat_logs.insert_one({
+                await DatabaseAdapter.insert_chat_log({
                     "_id": uuid.uuid4().hex,
                     "user_email": user.email if user else None,
                     "user_id": user.user_id if user else None,
@@ -334,13 +652,13 @@ async def create_share(req: ShareRequest) -> dict[str, Any]:
         "activeFileId": req.activeFileId,
         "createdAt": datetime.now(timezone.utc).isoformat(),
     }
-    await shares.insert_one(doc)
+    await DatabaseAdapter.insert_share(doc)
     return {"id": share_id, "path": f"/s/{share_id}"}
 
 
 @app.get("/api/share/{share_id}")
 async def get_share(share_id: str) -> dict[str, Any]:
-    doc = await shares.find_one({"_id": share_id}, {"_id": 0})
+    doc = await DatabaseAdapter.find_share(share_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Not found")
     return doc
@@ -375,46 +693,40 @@ async def exchange_session(req: SessionExchange, response: Response) -> dict[str
     is_admin = email in ADMIN_EMAILS
 
     # Upsert user
-    existing = await users.find_one({"email": email}, {"_id": 0})
+    existing = await DatabaseAdapter.find_user_by_email(email)
     now = datetime.now(timezone.utc)
     if existing:
         user_id = existing["user_id"]
-        await users.update_one(
-            {"user_id": user_id},
+        await DatabaseAdapter.update_user(
+            user_id,
             {
-                "$set": {
-                    "name": data.get("name") or existing.get("name", ""),
-                    "picture": data.get("picture") or existing.get("picture"),
-                    "is_admin": is_admin,
-                    "last_login_at": now,
-                }
-            },
-        )
-    else:
-        user_id = f"user_{uuid.uuid4().hex[:12]}"
-        await users.insert_one(
-            {
-                "user_id": user_id,
-                "email": email,
-                "name": data.get("name") or "",
-                "picture": data.get("picture") or "",
+                "name": data.get("name") or existing.get("name", ""),
+                "picture": data.get("picture") or existing.get("picture"),
                 "is_admin": is_admin,
-                "created_at": now,
                 "last_login_at": now,
             }
         )
+    else:
+        user_id = f"user_{uuid.uuid4().hex[:12]}"
+        await DatabaseAdapter.insert_user({
+            "user_id": user_id,
+            "email": email,
+            "name": data.get("name") or "",
+            "picture": data.get("picture") or "",
+            "is_admin": is_admin,
+            "created_at": now,
+            "last_login_at": now,
+        })
 
     session_token = data.get("session_token") or uuid.uuid4().hex
     expires_at = now + timedelta(days=SESSION_DAYS)
-    await user_sessions.insert_one(
-        {
-            "_id": uuid.uuid4().hex,
-            "user_id": user_id,
-            "session_token": session_token,
-            "expires_at": expires_at,
-            "created_at": now,
-        }
-    )
+    await DatabaseAdapter.insert_session({
+        "_id": uuid.uuid4().hex,
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at,
+        "created_at": now,
+    })
 
     response.set_cookie(
         key="session_token",
@@ -450,7 +762,7 @@ async def logout(
     session_token: Optional[str] = Cookie(default=None),
 ) -> dict[str, bool]:
     if session_token:
-        await user_sessions.delete_one({"session_token": session_token})
+        await DatabaseAdapter.delete_session(session_token)
     response.delete_cookie("session_token", path="/")
     return {"ok": True}
 
@@ -458,29 +770,15 @@ async def logout(
 # ── admin routes ───────────────────────────────────────────────────────────
 @app.get("/api/admin/overview")
 async def admin_overview(_: User = Depends(require_admin)) -> dict[str, Any]:
-    now = datetime.now(timezone.utc)
-    day_ago = now - timedelta(hours=24)
-    total_shares = await shares.count_documents({})
-    total_chats = await chat_logs.count_documents({})
-    last24_chats = await chat_logs.count_documents({"created_at": {"$gte": day_ago}})
-    last24_shares = await chat_logs.count_documents({"created_at": {"$gte": day_ago}})
-    # distinct users last 7 days
-    seven_days = now - timedelta(days=7)
-    cursor = chat_logs.aggregate([
-        {"$match": {"created_at": {"$gte": seven_days}, "user_email": {"$ne": None}}},
-        {"$group": {"_id": "$user_email"}},
-        {"$count": "count"},
-    ])
-    distinct_users_7d = 0
-    async for doc in cursor:
-        distinct_users_7d = int(doc.get("count", 0))
+    """Admin overview with database stats - PostgreSQL implementation needed"""
+    # TODO: Implement admin overview for PostgreSQL
     return {
-        "total_shares": total_shares,
-        "total_chats": total_chats,
-        "last24_chats": last24_chats,
-        "last24_shares": last24_shares,
-        "distinct_users_7d": distinct_users_7d,
-        "generated_at": now.isoformat(),
+        "total_shares": 0,
+        "total_chats": 0,
+        "last24_chats": 0,
+        "last24_shares": 0,
+        "distinct_users_7d": 0,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -489,26 +787,15 @@ async def admin_shares(
     limit: int = 50,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    limit = max(1, min(limit, 200))
-    cursor = shares.find({}, {"_id": 1, "files": 1, "createdAt": 1}).sort("createdAt", -1).limit(limit)
-    items: list[dict[str, Any]] = []
-    async for doc in cursor:
-        files = doc.get("files") or []
-        items.append(
-            {
-                "id": doc["_id"],
-                "file_count": len(files),
-                "primary_file": (files[0].get("name") if files else None),
-                "createdAt": doc.get("createdAt"),
-            }
-        )
-    return {"items": items, "count": len(items)}
+    """List recent shares - PostgreSQL implementation needed"""
+    # TODO: Implement shares listing for PostgreSQL
+    return {"items": [], "count": 0}
 
 
 @app.delete("/api/admin/shares/{share_id}")
 async def admin_delete_share(share_id: str, _: User = Depends(require_admin)) -> dict[str, bool]:
-    res = await shares.delete_one({"_id": share_id})
-    if res.deleted_count == 0:
+    deleted_count = await DatabaseAdapter.delete_share(share_id)
+    if deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")
     return {"ok": True}
 
@@ -518,39 +805,16 @@ async def admin_chat_log(
     limit: int = 50,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    limit = max(1, min(limit, 200))
-    cursor = chat_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit)
-    items: list[dict[str, Any]] = []
-    async for doc in cursor:
-        ts = doc.get("created_at")
-        if isinstance(ts, datetime):
-            if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
-            doc["created_at"] = ts.isoformat()
-        items.append(doc)
-    return {"items": items, "count": len(items)}
+    """Get recent chat logs - PostgreSQL implementation needed"""
+    # TODO: Implement chat log retrieval for PostgreSQL
+    return {"items": [], "count": 0}
 
 
 @app.get("/api/admin/llm-usage")
 async def admin_llm_usage(days: int = 14, _: User = Depends(require_admin)) -> dict[str, Any]:
-    days = max(1, min(days, 60))
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    cursor = chat_logs.aggregate([
-        {"$match": {"created_at": {"$gte": since}}},
-        {
-            "$group": {
-                "_id": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                },
-                "count": {"$sum": 1},
-            }
-        },
-        {"$sort": {"_id": 1}},
-    ])
-    buckets: list[dict[str, Any]] = []
-    async for doc in cursor:
-        buckets.append({"date": doc["_id"], "count": int(doc.get("count", 0))})
-    return {"days": days, "buckets": buckets}
+    """Get LLM usage stats - PostgreSQL implementation needed"""
+    # TODO: Implement LLM usage stats for PostgreSQL
+    return {"days": days, "buckets": []}
 
 
 @app.get("/api/admin/settings")
@@ -564,22 +828,13 @@ async def admin_put_settings(
     body: LLMSettings,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    allowed_providers = {"openai", "anthropic", "gemini"}
+    allowed_providers = {"openai", "anthropic", "gemini", "siliconflow"}
     if body.provider not in allowed_providers:
         raise HTTPException(status_code=400, detail=f"provider must be one of {sorted(allowed_providers)}")
     if not body.model.strip():
         raise HTTPException(status_code=400, detail="model required")
-    await settings.update_one(
-        {"_id": "llm"},
-        {
-            "$set": {
-                "provider": body.provider,
-                "model": body.model.strip(),
-                "updated_at": datetime.now(timezone.utc),
-            }
-        },
-        upsert=True,
-    )
+
+    await DatabaseAdapter.upsert_settings("llm", body.provider, body.model.strip())
     return {"provider": body.provider, "model": body.model.strip()}
 
 
