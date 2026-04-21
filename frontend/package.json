@@ -1,16 +1,16 @@
 {
-  "name": "sahib-chat",
-  "description": "sahib.chat — glassmorphic AI coding workspace",
+  "name": "yallai-frontend",
+  "description": "Yallai — AI coding workspace (Next.js frontend)",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "start": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
-    "start": "next start",
+    "serve": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.490.0",
     "@babel/standalone": "^7.23.0",
     "@monaco-editor/react": "^4.6.0",
     "clsx": "^2.1.0",

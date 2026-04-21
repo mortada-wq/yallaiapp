@@ -47,20 +47,34 @@ export function StudioWorkspace() {
           </div>
         )}
         {mainPanelMode === "split" && (
-          <Split
-            className="flex min-h-0 w-full"
-            sizes={[42, 58]}
-            minSize={[280, 360]}
-            gutterSize={8}
-            direction="horizontal"
-          >
-            <div className="flex min-h-0 min-w-0">
-              <ChatPanel />
+          <>
+            {/* Desktop: resizable split */}
+            <div className="hidden min-h-0 w-full md:flex">
+              <Split
+                className="flex min-h-0 w-full"
+                sizes={[42, 58]}
+                minSize={[280, 360]}
+                gutterSize={8}
+                direction="horizontal"
+              >
+                <div className="flex min-h-0 min-w-0">
+                  <ChatPanel />
+                </div>
+                <div className="flex min-h-0 min-w-0">
+                  <EditorPanel />
+                </div>
+              </Split>
             </div>
-            <div className="flex min-h-0 min-w-0">
-              <EditorPanel />
+            {/* Mobile: stacked (chat on top, editor below) */}
+            <div className="flex min-h-0 w-full flex-col gap-2 md:hidden">
+              <div className="flex min-h-[320px] flex-1">
+                <ChatPanel />
+              </div>
+              <div className="flex min-h-[320px] flex-1">
+                <EditorPanel />
+              </div>
             </div>
-          </Split>
+          </>
         )}
       </div>
     </div>

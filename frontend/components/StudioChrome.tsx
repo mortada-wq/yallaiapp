@@ -59,13 +59,17 @@ export function StudioChrome() {
         onProjects={() => setProjectsOpen(true)}
       />
       <div className="flex min-h-0 min-w-0 flex-1">
-        <ActivityBar />
-        <Sidebar
-          onSettings={() => setSettingsOpen(true)}
-          onTemplates={() => setTemplatesOpen(true)}
-          onExport={() => setExportOpen(true)}
-          onProjects={() => setProjectsOpen(true)}
-        />
+        <div className="hidden md:flex">
+          <ActivityBar />
+        </div>
+        <div className="hidden md:flex">
+          <Sidebar
+            onSettings={() => setSettingsOpen(true)}
+            onTemplates={() => setTemplatesOpen(true)}
+            onExport={() => setExportOpen(true)}
+            onProjects={() => setProjectsOpen(true)}
+          />
+        </div>
         <StudioWorkspace />
       </div>
       <CommandPalette
