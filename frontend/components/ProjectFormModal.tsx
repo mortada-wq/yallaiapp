@@ -171,7 +171,7 @@ export function ProjectFormModal({ open, onOpenChange, editProject, onDone }: Pr
             {showInstructions && (
               <div className="flex flex-col gap-1.5">
                 <p className="text-[11px] text-white/35 leading-relaxed">
-                  Instructions are sent to the AI at the start of every conversation in this project. Use them to set context, style, or rules — like Claude's project memory.
+                  Instructions are sent to the AI at the start of every conversation in this project. Use them to set context, style, or rules — like a project memory in Claude.
                 </p>
                 <textarea
                   id="project-instructions"

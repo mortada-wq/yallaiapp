@@ -556,6 +556,7 @@ const MODEL_OPTIONS: Record<string, string[]> = {
   ],
   openai: ["gpt-5.2", "gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-4o", "gpt-4o-mini"],
   gemini: ["gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-2.5-pro"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
 };
 
 function SettingsSection() {

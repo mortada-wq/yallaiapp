@@ -46,6 +46,10 @@ DB_NAME = os.environ["DB_NAME"]
 EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
 DEFAULT_LLM_PROVIDER = os.environ.get("DEFAULT_LLM_PROVIDER", "anthropic")
 DEFAULT_LLM_MODEL = os.environ.get("DEFAULT_LLM_MODEL", "claude-sonnet-4-5-20250929")
+# Local dev: COOKIE_SECURE=false and COOKIE_SAMESITE=lax (see backend/.env.example)
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() in ("1", "true", "yes")
+_raw_samesite = (os.environ.get("COOKIE_SAMESITE", "none") or "none").lower()
+COOKIE_SAMESITE = _raw_samesite if _raw_samesite in ("lax", "strict", "none") else "none"
 ADMIN_EMAILS = {
     e.strip().lower()
     for e in os.environ.get("ADMIN_EMAILS", "mortadagzar@gmail.com").split(",")
@@ -175,15 +179,38 @@ async def get_current_model() -> tuple[str, str]:
     return DEFAULT_LLM_PROVIDER, DEFAULT_LLM_MODEL
 
 
+# Client UI providers (Zustand) that map to Emergent LlmChat provider names
+_EMERGENT_ALIASES = {
+    "bedrock": "anthropic",  # Claude via Bedrock → same model family in Emergent
+}
+_SUPPORTED_CLIENT = {"openai", "anthropic", "gemini", "deepseek"}
+
+
+async def resolve_effective_model(req: ChatRequest) -> tuple[str, str]:
+    """
+    Admin default (Mongo) unless the client sends a valid provider+model
+    (in-app Settings). bedrock is mapped to anthropic.
+    """
+    default_p, default_m = await get_current_model()
+    raw_p = (req.provider or "").strip().lower() if req.provider else ""
+    raw_m = (req.model or "").strip() if req.model else ""
+    if not raw_p or not raw_m:
+        return default_p, default_m
+    mapped = _EMERGENT_ALIASES.get(raw_p, raw_p)
+    if mapped not in _SUPPORTED_CLIENT:
+        return default_p, default_m
+    return mapped, raw_m
+
+
 async def generate_reply(
     user_message: str,
     history: List[ChatMessage],
     extra_system: str,
     session_id: str,
+    provider: str,
+    model: str,
 ) -> str:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
-
-    provider, model = await get_current_model()
     system = SYSTEM_PROMPT + (f"\n\n{extra_system.strip()}" if extra_system.strip() else "")
 
     chat = LlmChat(
@@ -283,10 +310,14 @@ async def chat_endpoint(
         or nanoid(size=16)
     )
 
+    provider, model = await resolve_effective_model(req)
+
     async def event_generator():
         full_reply = ""
         try:
-            reply = await generate_reply(message, req.history, extra_system, chat_session_id)
+            reply = await generate_reply(
+                message, req.history, extra_system, chat_session_id, provider, model
+            )
             if not reply:
                 yield "No response. Please try again."
                 return
@@ -421,8 +452,8 @@ async def exchange_session(req: SessionExchange, response: Response) -> dict[str
         value=session_token,
         max_age=SESSION_DAYS * 24 * 60 * 60,
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
         path="/",
     )
 
@@ -451,7 +482,7 @@ async def logout(
 ) -> dict[str, bool]:
     if session_token:
         await user_sessions.delete_one({"session_token": session_token})
-    response.delete_cookie("session_token", path="/")
+    response.delete_cookie("session_token", path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
     return {"ok": True}
 
 
@@ -564,7 +595,7 @@ async def admin_put_settings(
     body: LLMSettings,
     _: User = Depends(require_admin),
 ) -> dict[str, Any]:
-    allowed_providers = {"openai", "anthropic", "gemini"}
+    allowed_providers = {"openai", "anthropic", "gemini", "deepseek"}
     if body.provider not in allowed_providers:
         raise HTTPException(status_code=400, detail=f"provider must be one of {sorted(allowed_providers)}")
     if not body.model.strip():

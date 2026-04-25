@@ -1,7 +1,8 @@
 /**
- * Client-safe AI provider config.
- * Actual LLM calls are handled by the FastAPI backend using Emergent LLM key.
- * This file only exists so `store.ts` can reference DEFAULT_MODELS for type purposes.
+ * Client-safe AI provider labels and default model ids.
+ * Chat calls go to Next.js `/api/chat`, which proxies to FastAPI and `emergentintegrations`
+ * (see `backend/server.py`). The server uses the Emergent key; admin can set a global
+ * default model, and in-app Settings can override provider + model per request.
  */
 import type { AiProvider } from "@/lib/types";
 
