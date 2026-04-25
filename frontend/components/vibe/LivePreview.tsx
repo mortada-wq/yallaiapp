@@ -107,7 +107,7 @@ export function LivePreview({ className }: { className?: string }) {
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
           <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-          <span className="ml-2 text-[11px] text-white/40">
+          <span className="ms-2 text-[11px] text-white/40">
             preview · <span className="text-white/50">{device.label.toLowerCase()}</span>
           </span>
         </div>

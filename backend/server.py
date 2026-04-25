@@ -2,7 +2,7 @@
 صاحب يلا backend — FastAPI.
 
 Public endpoints:
-  - POST /api/chat            streaming chat with Claude Sonnet 4.5 (Emergent LLM key)
+  - POST /api/chat            streaming chat (Anthropic / OpenAI / Gemini / DeepSeek)
   - POST /api/share           save a project snapshot, return id
   - GET  /api/share/{id}      retrieve a saved snapshot
   - GET  /api/health          health check
@@ -36,17 +36,22 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Request, Response, Depends, Cookie, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from motor.motor_asyncio import AsyncIOMotorClient
 from nanoid import generate as nanoid
 from pydantic import BaseModel, Field
 
 # ── config ──────────────────────────────────────────────────────────────────
-MONGO_URL = os.environ["MONGO_URL"]
-DB_NAME = os.environ["DB_NAME"]
-EMERGENT_LLM_KEY = os.environ["EMERGENT_LLM_KEY"]
+MONGO_URL = os.environ.get("MONGO_URL", "mock")
+DB_NAME = os.environ.get("DB_NAME", "sahib_yalla")
+
+# LLM keys — provider-specific keys take priority; EMERGENT_LLM_KEY is a fallback
+EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "") or EMERGENT_LLM_KEY
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "") or EMERGENT_LLM_KEY
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "") or EMERGENT_LLM_KEY
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "") or EMERGENT_LLM_KEY
+
 DEFAULT_LLM_PROVIDER = os.environ.get("DEFAULT_LLM_PROVIDER", "anthropic")
 DEFAULT_LLM_MODEL = os.environ.get("DEFAULT_LLM_MODEL", "claude-sonnet-4-5-20250929")
-# Local dev: COOKIE_SECURE=false and COOKIE_SAMESITE=lax (see backend/.env.example)
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() in ("1", "true", "yes")
 _raw_samesite = (os.environ.get("COOKIE_SAMESITE", "none") or "none").lower()
 COOKIE_SAMESITE = _raw_samesite if _raw_samesite in ("lax", "strict", "none") else "none"
@@ -73,7 +78,21 @@ SYSTEM_PROMPT = (
 )
 
 # ── mongo ───────────────────────────────────────────────────────────────────
-mongo_client = AsyncIOMotorClient(MONGO_URL)
+_USE_MOCK_DB = not MONGO_URL or MONGO_URL in ("mock", "mock://") or MONGO_URL.startswith("mock://")
+
+if _USE_MOCK_DB:
+    import warnings
+    warnings.warn(
+        "MONGO_URL not set or is 'mock' — using in-memory mongomock. Data will not persist.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    from mongomock_motor import AsyncMongoMockClient  # type: ignore
+    mongo_client = AsyncMongoMockClient()
+else:
+    from motor.motor_asyncio import AsyncIOMotorClient
+    mongo_client = AsyncIOMotorClient(MONGO_URL)
+
 db = mongo_client[DB_NAME]
 shares = db["shares"]
 users = db["users"]
@@ -84,7 +103,6 @@ settings = db["settings"]
 # ── app ─────────────────────────────────────────────────────────────────────
 app = FastAPI(title="Sahib Yalla API", version="1.0.0")
 
-# Same-origin in production (ingress), but permissive here since the preview is served via one host.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -179,18 +197,13 @@ async def get_current_model() -> tuple[str, str]:
     return DEFAULT_LLM_PROVIDER, DEFAULT_LLM_MODEL
 
 
-# Client UI providers (Zustand) that map to Emergent LlmChat provider names
 _EMERGENT_ALIASES = {
-    "bedrock": "anthropic",  # Claude via Bedrock → same model family in Emergent
+    "bedrock": "anthropic",
 }
 _SUPPORTED_CLIENT = {"openai", "anthropic", "gemini", "deepseek"}
 
 
 async def resolve_effective_model(req: ChatRequest) -> tuple[str, str]:
-    """
-    Admin default (Mongo) unless the client sends a valid provider+model
-    (in-app Settings). bedrock is mapped to anthropic.
-    """
     default_p, default_m = await get_current_model()
     raw_p = (req.provider or "").strip().lower() if req.provider else ""
     raw_m = (req.model or "").strip() if req.model else ""
@@ -210,25 +223,74 @@ async def generate_reply(
     provider: str,
     model: str,
 ) -> str:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
     system = SYSTEM_PROMPT + (f"\n\n{extra_system.strip()}" if extra_system.strip() else "")
 
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=session_id,
-        system_message=system,
-    ).with_model(provider, model)
-
+    # Build conversation messages from history
+    messages: list[dict[str, str]] = []
     for m in history:
         if m.role not in ("user", "assistant"):
             continue
-        if m.role == "assistant" and not m.content.strip():
+        if not m.content.strip():
             continue
-        if m.role == "user":
-            await chat.send_message(UserMessage(text=m.content))
+        messages.append({"role": m.role, "content": m.content})
+    messages.append({"role": "user", "content": user_message})
 
-    response = await chat.send_message(UserMessage(text=user_message))
-    return response if isinstance(response, str) else str(response)
+    if provider == "anthropic":
+        import anthropic  # type: ignore
+        api_key = ANTHROPIC_API_KEY
+        if not api_key:
+            raise ValueError("No ANTHROPIC_API_KEY set. Add it to backend/.env")
+        client = anthropic.AsyncAnthropic(api_key=api_key)
+        response = await client.messages.create(
+            model=model,
+            max_tokens=8192,
+            system=system,
+            messages=messages,  # type: ignore[arg-type]
+        )
+        return response.content[0].text  # type: ignore[union-attr]
+
+    if provider == "openai":
+        import openai  # type: ignore
+        api_key = OPENAI_API_KEY
+        if not api_key:
+            raise ValueError("No OPENAI_API_KEY set. Add it to backend/.env")
+        client = openai.AsyncOpenAI(api_key=api_key)
+        openai_messages = [{"role": "system", "content": system}] + messages
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=openai_messages,  # type: ignore[arg-type]
+        )
+        return resp.choices[0].message.content or ""
+
+    if provider == "gemini":
+        import google.generativeai as genai  # type: ignore
+        api_key = GOOGLE_API_KEY
+        if not api_key:
+            raise ValueError("No GOOGLE_API_KEY set. Add it to backend/.env")
+        genai.configure(api_key=api_key)
+        gemini_model = genai.GenerativeModel(model_name=model, system_instruction=system)
+        gemini_history = []
+        for m in messages[:-1]:
+            role = "user" if m["role"] == "user" else "model"
+            gemini_history.append({"role": role, "parts": [m["content"]]})
+        chat = gemini_model.start_chat(history=gemini_history)
+        resp = await chat.send_message_async(user_message)
+        return resp.text
+
+    if provider == "deepseek":
+        import openai  # type: ignore
+        api_key = DEEPSEEK_API_KEY
+        if not api_key:
+            raise ValueError("No DEEPSEEK_API_KEY set. Add it to backend/.env")
+        client = openai.AsyncOpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+        openai_messages = [{"role": "system", "content": system}] + messages
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=openai_messages,  # type: ignore[arg-type]
+        )
+        return resp.choices[0].message.content or ""
+
+    raise ValueError(f"Unsupported provider: {provider!r}")
 
 
 async def stream_chunks(text: str, chunk_size: int = 48):
@@ -266,7 +328,6 @@ async def get_optional_user(
     created = user_doc.get("created_at")
     if isinstance(created, datetime):
         user_doc["created_at"] = created.isoformat()
-    # keep only the fields the User model cares about
     return User(
         user_id=user_doc["user_id"],
         email=user_doc["email"],
@@ -290,7 +351,12 @@ async def require_admin(
 # ── public routes ──────────────────────────────────────────────────────────
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "service": "sahib-yalla", "time": datetime.now(timezone.utc).isoformat()}
+    return {
+        "ok": True,
+        "service": "sahib-yalla",
+        "time": datetime.now(timezone.utc).isoformat(),
+        "db": "mock (in-memory)" if _USE_MOCK_DB else "mongodb",
+    }
 
 
 @app.post("/api/chat")
@@ -326,14 +392,15 @@ async def chat_endpoint(
                 yield piece
         except Exception as e:  # noqa: BLE001
             err = str(e)
-            if "401" in err or "credential" in err.lower():
-                yield "Authentication error. The Emergent LLM key may be invalid."
+            if "401" in err or "credential" in err.lower() or "api_key" in err.lower():
+                yield "Authentication error. Check your API key in backend/.env"
             elif "429" in err or "rate" in err.lower() or "throttl" in err.lower():
                 yield "Too many requests. Please wait a moment."
+            elif "No ANTHROPIC_API_KEY" in err or "No OPENAI_API_KEY" in err or "No GOOGLE_API_KEY" in err or "No DEEPSEEK_API_KEY" in err:
+                yield err
             else:
                 yield f"Error: {err[:300]}"
         finally:
-            # audit log
             try:
                 await chat_logs.insert_one({
                     "_id": uuid.uuid4().hex,
@@ -380,10 +447,6 @@ async def get_share(share_id: str) -> dict[str, Any]:
 # ── auth routes ────────────────────────────────────────────────────────────
 @app.post("/api/auth/session")
 async def exchange_session(req: SessionExchange, response: Response) -> dict[str, Any]:
-    """
-    Exchange an Emergent Auth `session_id` (from the URL fragment) for our own
-    session_token stored in the DB, then set a HttpOnly cookie.
-    """
     if not req.session_id or len(req.session_id) < 4:
         raise HTTPException(status_code=400, detail="Invalid session_id")
 
@@ -405,7 +468,6 @@ async def exchange_session(req: SessionExchange, response: Response) -> dict[str
 
     is_admin = email in ADMIN_EMAILS
 
-    # Upsert user
     existing = await users.find_one({"email": email}, {"_id": 0})
     now = datetime.now(timezone.utc)
     if existing:
@@ -495,7 +557,6 @@ async def admin_overview(_: User = Depends(require_admin)) -> dict[str, Any]:
     total_chats = await chat_logs.count_documents({})
     last24_chats = await chat_logs.count_documents({"created_at": {"$gte": day_ago}})
     last24_shares = await chat_logs.count_documents({"created_at": {"$gte": day_ago}})
-    # distinct users last 7 days
     seven_days = now - timedelta(days=7)
     cursor = chat_logs.aggregate([
         {"$match": {"created_at": {"$gte": seven_days}, "user_email": {"$ne": None}}},
@@ -524,12 +585,12 @@ async def admin_shares(
     cursor = shares.find({}, {"_id": 1, "files": 1, "createdAt": 1}).sort("createdAt", -1).limit(limit)
     items: list[dict[str, Any]] = []
     async for doc in cursor:
-        files = doc.get("files") or []
+        files_list = doc.get("files") or []
         items.append(
             {
                 "id": doc["_id"],
-                "file_count": len(files),
-                "primary_file": (files[0].get("name") if files else None),
+                "file_count": len(files_list),
+                "primary_file": (files_list[0].get("name") if files_list else None),
                 "createdAt": doc.get("createdAt"),
             }
         )

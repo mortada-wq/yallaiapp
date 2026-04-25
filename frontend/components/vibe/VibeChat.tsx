@@ -247,7 +247,7 @@ export function VibeChat({ onOpenCode }: { onOpenCode?: () => void }) {
               data-testid="vibe-open-code-inline"
               className="text-[11px] text-white/40 transition-colors hover:text-white"
             >
-              عرض الكود ←
+              عرض الكود →
             </button>
           )}
         </div>
