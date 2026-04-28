@@ -10,9 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "Segoe UI", "sans-serif"],
-        mono: ["var(--font-jetbrains-mono)", "ui-monospace", "monospace"],
-        aref: ["var(--font-aref-ruqaa)", "serif"],
+        sans: ["system-ui", "Segoe UI", "sans-serif"],
+        mono: ["ui-monospace", "monospace"],
+        aref: ["serif"],
       },
       colors: {
         sahib: {
