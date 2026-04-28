@@ -1,30 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Aref_Ruqaa } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
 import { themeInitScriptContent } from "@/components/theme-init-script";
 import { publicSiteUrl } from "@/lib/site";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-});
-
-const arefRuqaa = Aref_Ruqaa({
-  subsets: ["arabic", "latin"],
-  variable: "--font-aref-ruqaa",
-  weight: ["400", "700"],
-  display: "swap",
-});
 
 const site = publicSiteUrl();
 const defaultTitle = "صاحب يلا — AI coding workspace";
@@ -71,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="ar"
       dir="rtl"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${arefRuqaa.variable}`}
+      className="dark"
       suppressHydrationWarning
     >
       <body className="font-sans">
